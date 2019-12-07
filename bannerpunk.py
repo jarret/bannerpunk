@@ -49,6 +49,7 @@ class AppServer(WebSocketServerFactory):
         self.protocol = AppClient
         self.protocol.server = self
         self.clients = []
+        print("listening on websocket %s" % ws_url)
         reactor.listenTCP(port, self)
         self.app = app
 
@@ -64,8 +65,9 @@ class AppServer(WebSocketServerFactory):
 ###############################################################################
 
 class App(object):
-    def __init__(self, endpoint, port, art_db_dir):
+    def __init__(self, endpoint, mock_endpoint, port, art_db_dir):
         self.endpoint = endpoint
+        self.mock_endpoint = mock_endpoint
         self.port = port
         self.art_db_dir = art_db_dir
 
@@ -88,10 +90,18 @@ class App(object):
 
     def setup_zmq(self):
         zmq_factory = ZmqFactory()
+        print("subscribing on: %s" % self.endpoint)
         sub_endpoint = ZmqEndpoint(ZmqEndpointType.connect, self.endpoint)
         sub_connection = ZmqSubConnection(zmq_factory, sub_endpoint)
         sub_connection.gotMessage = self.zmq_message
         sub_connection.subscribe("invoice_payment".encode("utf8"))
+
+        print("subscribing on: %s" % self.mock_endpoint)
+        sub_mock_endpoint = ZmqEndpoint(ZmqEndpointType.connect,
+                                        self.mock_endpoint)
+        sub_mock_connection = ZmqSubConnection(zmq_factory, sub_mock_endpoint)
+        sub_mock_connection.gotMessage = self.zmq_message
+        sub_mock_connection.subscribe("invoice_payment".encode("utf8"))
 
     def fee_adequate(self, fee, pixel_preimage):
         n_pixels = pixel_preimage.n_pixels
@@ -145,18 +155,28 @@ class App(object):
 DEFAULT_WEBSOCKET_PORT = 9000
 
 DEFAULT_ZMQ_SUBSCRIBE_ENDPOINT = "tcp://127.0.0.1:5556"
+DEFAULT_MOCK_ZMQ_SUBSCRIBE_ENDPOINT = "tcp://127.0.0.1:5557"
 
 DEFAULT_ART_DB_DIR = "/tmp/bannerpunk/"
 
 parser = argparse.ArgumentParser(prog="app.py")
 parser.add_argument("-e", "--endpoint", type=str,
-                    default=DEFAULT_ZMQ_SUBSCRIBE_ENDPOINT)
+                    default=DEFAULT_ZMQ_SUBSCRIBE_ENDPOINT,
+                    help="endpoint to subscribe to for zmq notifications from "
+                          "c-lightning via cl-zmq.py plugin")
+parser.add_argument("-m", "--mock-endpoint", type=str,
+                    default=DEFAULT_MOCK_ZMQ_SUBSCRIBE_ENDPOINT,
+                    help="endpoint to subscribe to zmq notifcations from a "
+                         "test script such as mock-png.py")
 parser.add_argument("-w", "--websocket-port", type=int,
-                    default=DEFAULT_WEBSOCKET_PORT)
-parser.add_argument("-a", "--art-db-dir", type=str, default=DEFAULT_ART_DB_DIR)
+                    default=DEFAULT_WEBSOCKET_PORT,
+                    help="port to listen for incoming websocket connections")
+parser.add_argument("-a", "--art-db-dir", type=str, default=DEFAULT_ART_DB_DIR,
+                    help="directory to save the image state and logs")
 settings = parser.parse_args()
 
-a = App(settings.endpoint, settings.websocket_port, settings.art_db_dir)
+a = App(settings.endpoint, settings.mock_endpoint, settings.websocket_port,
+        settings.art_db_dir)
 a.run()
 
 

@@ -17,7 +17,7 @@ from lib.pixel_preimage import Pixel, Preimage
 
 # This module publishes a script of messages to a ZMQ endpoint
 
-PUBLISH_ENDPOINT = "tcp://127.0.0.1:5556"
+PUBLISH_ENDPOINT = "tcp://127.0.0.1:5557"
 
 TAG = "invoice_payment".encode("utf8")
 
