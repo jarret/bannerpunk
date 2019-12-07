@@ -94,14 +94,14 @@ class App(object):
         sub_endpoint = ZmqEndpoint(ZmqEndpointType.connect, self.endpoint)
         sub_connection = ZmqSubConnection(zmq_factory, sub_endpoint)
         sub_connection.gotMessage = self.zmq_message
-        sub_connection.subscribe("invoice_payment".encode("utf8"))
+        sub_connection.subscribe("forward_event".encode("utf8"))
 
         print("subscribing on: %s" % self.mock_endpoint)
         sub_mock_endpoint = ZmqEndpoint(ZmqEndpointType.connect,
                                         self.mock_endpoint)
         sub_mock_connection = ZmqSubConnection(zmq_factory, sub_mock_endpoint)
         sub_mock_connection.gotMessage = self.zmq_message
-        sub_mock_connection.subscribe("invoice_payment".encode("utf8"))
+        sub_mock_connection.subscribe("forward_event".encode("utf8"))
 
     def fee_adequate(self, fee, pixel_preimage):
         n_pixels = pixel_preimage.n_pixels
@@ -110,6 +110,7 @@ class App(object):
 
     def zmq_message(self, message, tag):
         d = json.loads(message.decode('utf8'))
+        print("got %s" % json.dumps(d, indent=1))
 
         if d['status'] != 'settled':
             print("invoice is not settled")

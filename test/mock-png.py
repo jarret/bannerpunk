@@ -25,7 +25,7 @@ from bannerpunk.pixel_preimage import Pixel, Preimage
 
 PUBLISH_ENDPOINT = "tcp://127.0.0.1:5557"
 
-TAG = "invoice_payment".encode("utf8")
+TAG = "forward_event".encode("utf8")
 
 factory = ZmqFactory()
 
