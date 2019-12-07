@@ -16,7 +16,10 @@ from txzmq import ZmqEndpoint, ZmqEndpointType
 from txzmq import ZmqFactory
 from txzmq import ZmqSubConnection, ZmqPubConnection
 
+sys.path.insert(1, os.path.realpath(os.path.pardir))
+
 from bannerpunk.pixel_preimage import Pixel, Preimage
+
 
 # This module publishes a script of messages to a ZMQ endpoint
 
