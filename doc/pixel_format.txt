@@ -1,0 +1,21 @@
+
+
+
+256 bits in a preimage
+
+40 bits per (x,y,rgb) pixel
+
+160 bits = 4 pixels
+
+1 nibble to select which image/ad (1-4)
+1 nibble to say how many pixels (1-4)
+
+168 bits
+
+24 bit checksum of 168 bits to differentiate from noise
+
+64 bits of random entropy
+
+unused pixel fields should be noise too
+
+

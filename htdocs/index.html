@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2019 Jarret Dyrbye
+Distributed under the MIT software license, see the accompanying
+file LICENSE or http://www.opensource.org/licenses/mit-license.php -->
+<html>
+<head>
+<style>
+    P.body {
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 40em;
+        min-width: 15em;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+    .row {
+        max-width: 65em;
+    }
+    .row:after {
+      content: "";
+      display: table;
+      clear: both;
+    }
+    .column-text {
+      float: left;
+      width: 70%;
+    }
+    .column-grid {
+      float: left;
+      width: 30%;
+    }
+    li{
+      margin: 10px 0;
+    }
+</style>
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css" integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz" crossorigin="anonymous">
+</head>
+<body>
+    <center>
+    <p> For more upcoming LN pixel art action, please <a href="https://twitter.com/sparkshot_io">follow Sparkshot.io on Twitter</a>. </p>
+    <p> Sparkshot is a micropayment-driven art platform. <b>Public beta is starting January, 2020. </b> </p>
+    <hr>
+    <div id="grid-0"></div>
+    <div class= "row">
+        <div class="column-text">
+        <P class='body'>
+        The rectangle area above this text <i class="fas fa-arrow-up"></i> and beside this text <i class="fas fa-arrow-right"></i> are pixel grids where you may draw pixels via sending special messages as part of lightning network payments to a particular node.
+        </P>
+        <P class='body'>
+        These are intended to be like banner ads on your website, but with people able to set the content by paying satoshis.
+        </P>
+        <P class='body'>
+        Here is another advertisement space, but the type inline in an article's text body <i class="fas fa-arrow-down"></i>
+        </P>
+        <div id="grid-2"></div>
+        <P class='body'>
+        The top banner ad space is 256 pixels wide and 60 pixels tall with a 3x3 dot size. When writing it is addressable as image number <b>0</b>
+        </P>
+        <P class='body'>
+        The side banner ad space is 60 pixels wide and 256 pixels tall with a 3x3 dot size. When writing it is addressable as image number <b>1</b>
+        </P>
+        <P class='body'>
+        The inline article space is 256 pixels wide and 256 pixels tall with a 1x1 dot size. When writing it is addressable as image number <b>2</b>
+        </P>
+
+        <P class='body'>
+        We have a C-Lightning plugin and an additional Python scripts on the GitHub repository to assist in performing these special payments. In short, the simplest way is to perform a circular "invoiceless" payment to our node with an encoded preimage.
+        </P>
+
+        <P class='body'>
+        To set pixels, you must:
+        <ol>
+        <li>Encode the image number, pixel coordinates and RGB color values into preimages.</li>
+        <li>Forward a payment through the target node using an encoded preimage.</li>
+        <li>Pay a forwarding fee that is at least 1 satoshi per encoded pixel in the preimage.</li>
+        </ol>
+        For example, the 256-bit preimage <code>045e35787a5c5f357376506035758058613571824ea919efa1f3d6e02ee9b38fed7447</code> is an encoded preimage.
+        </P>
+        <P class='body'>
+        The first byte, <code>04</code> gives two values. The first nibble <code>0</code> specifies the image number this is for (the top one). The second nibble of this byte specifies the number of pixels encoded in the rest of the preimage <code>4</code> in this case.
+        </P>
+        <P class='body'>
+        The next 5 bytes <code>5e35787a5c</code> specifies the first pixel. <code>5e</code> and <code>35</code> are the pixel coordinate (94, 35). The remaining 3 bytes <code>787a5c</code> are the hex RGB color.
+        </P>
+        <P class='body'>
+        The next 15 bytes <code>5f357376506035758058613571824e</code> are the next 3 pixels encoded in the same fashion.
+        </P>
+        <P class='body'>
+        The next 3 bytes <code>a919ef</code> are a SHA256-based checksum of the previous bytes to help distinguish this preimage from random noise.
+        </P>
+        <P class='body'>
+        The remaining 8 bytes <code>a1f3d6e02ee9b38fed7447</code> are random noise to prevent anyone from knowing this value ahead of time.
+        </P>
+        </div>
+
+        <div class="column-grid">
+        <div id="grid-1"></div>
+        </div>
+    </div>
+
+    </center>
+</body>
+
+<script src="js/import/pako.js"></script>
+<script type="text/javascript">
+
+var AppSocket;
+
+const WEBSOCKET = "ws://localhost:9000";
+
+const WIDTH_0 = 256;
+const HEIGHT_0 = 60;
+const PX_SIZE_0 = 3;
+
+const WIDTH_1 = 60;
+const HEIGHT_1 = 256;
+const PX_SIZE_1 = 3;
+
+const WIDTH_2 = 256;
+const HEIGHT_2 = 256;
+const PX_SIZE_2 = 1;
+
+
+const PIXEL_RECORD_SIZE = 3;
+
+function drawColor(ctx, px_size, x, y, color) {
+    ctx.fillStyle = color;
+
+    lx = (px_size * x);
+    //ly = (PX_SIZE * HEIGHT) - (PX_SIZE * (y + 1));
+    ly = (px_size * y);
+
+    ctx.fillRect(lx, ly, px_size, px_size);
+}
+
+function getCanvasContext(image_no) {
+    if (image_no == 0) {
+        c = document.getElementById("canvas-0");
+        return c.getContext("2d");
+    } else if (image_no == 1) {
+        c = document.getElementById("canvas-1");
+        return c.getContext("2d");
+    } else {
+        c = document.getElementById("canvas-2");
+        return c.getContext("2d");
+    }
+}
+
+function CreateCanvas0() {
+    t = document.getElementById("grid-0");
+    c = document.createElement("canvas");
+    c.setAttribute("id", "canvas-0")
+    c.setAttribute("width", WIDTH_0 * PX_SIZE_0);
+    c.setAttribute("height", HEIGHT_0 * PX_SIZE_0);
+    c.setAttribute("style", "border:1px solid #000000;");
+    t.appendChild(c);
+    return c;
+}
+
+function CreateCanvas1() {
+    t = document.getElementById("grid-1");
+    c = document.createElement("canvas");
+    c.setAttribute("id", "canvas-1");
+    c.setAttribute("width", WIDTH_1 * PX_SIZE_1);
+    c.setAttribute("height", HEIGHT_1 * PX_SIZE_1);
+    c.setAttribute("style", "border:1px solid #000000;");
+    t.appendChild(c);
+    return c;
+}
+
+function CreateCanvas2() {
+    t = document.getElementById("grid-2");
+    c = document.createElement("canvas");
+    c.setAttribute("id", "canvas-2");
+    c.setAttribute("width", WIDTH_2 * PX_SIZE_2);
+    c.setAttribute("height", HEIGHT_2 * PX_SIZE_2);
+    c.setAttribute("style", "border:1px solid #000000;");
+    t.appendChild(c);
+    return c;
+}
+
+function CreateDisplay() {
+    var canvas0 = CreateCanvas0();
+    var draw0 = canvas0.getContext("2d");
+    var canvas1 = CreateCanvas1();
+    var draw1 = canvas1.getContext("2d");
+    var canvas2 = CreateCanvas2();
+    var draw2 = canvas2.getContext("2d");
+
+    for (var x = 0; x < WIDTH_0; x++) {
+        for (var y = 0; y < HEIGHT_0; y++) {
+            if (((x + y) % 2) == 1) {
+                drawColor(draw0, PX_SIZE_0, x, y, "#ffffff");
+            } else {
+                drawColor(draw0, PX_SIZE_0, x, y, "#000000");
+            }
+        }
+    }
+    for (var x = 0; x < WIDTH_1; x++) {
+        for (var y = 0; y < HEIGHT_1; y++) {
+            if (((x + y) % 2) == 1) {
+                drawColor(draw1, PX_SIZE_1, x, y, "#ffffff");
+            } else {
+                drawColor(draw1, PX_SIZE_1, x, y, "#000000");
+            }
+        }
+    }
+    for (var x = 0; x < WIDTH_2; x++) {
+        for (var y = 0; y < HEIGHT_2; y++) {
+            if (((x + y) % 2) == 1) {
+                drawColor(draw2, PX_SIZE_2, x, y, "#ffffff");
+            } else {
+                drawColor(draw2, PX_SIZE_2, x, y, "#000000");
+            }
+        }
+    }
+}
+
+function drawPixelUpdate(ctx, image_no, pixel) {
+    console.log("x: " + pixel.x);
+    console.log("y: " + pixel.y);
+    console.log("rgb: " + pixel.rgb);
+    if (image_no == 0) {
+        drawColor(ctx, PX_SIZE_0, pixel.x, pixel.y, "#" + pixel.rgb);
+    } else if (image_no == 1) {
+        drawColor(ctx, PX_SIZE_1, pixel.x, pixel.y, "#" + pixel.rgb);
+    } else {
+        drawColor(ctx, PX_SIZE_2, pixel.x, pixel.y, "#" + pixel.rgb);
+    }
+}
+
+function drawPixelUpdates(image_no, pixels) {
+    console.log("image no: " + image_no);
+    console.log("pixels: " + pixels);
+
+    ctx = getCanvasContext(image_no);
+
+    for (var i = 0; i < pixels.length; i++) {
+        var pixel = pixels[i];
+        drawPixelUpdate(ctx, image_no, pixel);
+    }
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+
+CreateDisplay();
+
+//////////////////////////////////////////////////////////////////////////////
+
+function processReceivedNotification(event) {
+    if (event.data instanceof Blob) {
+        console.log(`processReceivedNotification: RECIEVED BINARY BLOB`);
+        processReceivedBinaryNotification(event);
+    } else {
+         console.log(`processReceivedNotification: RECIEVED TEXT`);
+        processReceivedTextNotification(event);
+    }
+}
+
+function processReceivedTextNotification( event ) {
+    const data = JSON.parse( event.data );
+    const image_no = data.image_no;
+    const pixels = data.pixels;
+    drawPixelUpdates(image_no, pixels);
+}
+
+function processReceivedBinaryNotification(event) {
+    // console.log(`processReceivedBinaryNotification`);
+    printBinary(event.data);
+    handleBinary(event.data);
+}
+
+function printBinary(data) {
+    const reader = new FileReader();
+    reader.readAsText(data);
+    const txt = reader.result;
+    console.log(txt);
+}
+
+function handleBinary(data) {
+    // console.log(`handleBinary`);
+    const reader = new FileReader();
+
+    reader.onload = event => {
+           console.log("starting decompression of " + event.target.result.byteLength + " bytes.");
+           const compressed = new Uint8Array(event.target.result);
+           const inflated = pako.inflate(compressed);
+           handleNotification(inflated.buffer);
+    };
+    reader.readAsArrayBuffer(data);
+}
+
+
+function toHexColor(r, g, b) {
+    var s = '#';
+    s += ('0' + (r & 0xFF).toString(16)).slice(-2);
+    s += ('0' + (g & 0xFF).toString(16)).slice(-2);
+    s += ('0' + (b & 0xFF).toString(16)).slice(-2);
+    return s;
+}
+
+
+
+function handleNotification(ab) {
+    const ctx0 = getCanvasContext(0);
+    const ctx1 = getCanvasContext(1);
+    const ctx2 = getCanvasContext(2);
+    console.log("starting binary parse of " + ab.byteLength + " bytes.");
+    const dv = new DataView(ab);
+    const len0 = HEIGHT_0 * WIDTH_0 * PIXEL_RECORD_SIZE
+    const len1 = HEIGHT_1 * WIDTH_1 * PIXEL_RECORD_SIZE
+    for (let x = 0; x < WIDTH_0; x++) {
+        for (let y = 0; y < HEIGHT_0; y++) {
+            let byte_offset = (x * PIXEL_RECORD_SIZE * HEIGHT_0) + (y * PIXEL_RECORD_SIZE);
+            const r = dv.getUint8(byte_offset);
+            const g = dv.getUint8(byte_offset + 1);
+            const b = dv.getUint8(byte_offset + 2);
+            let color = toHexColor(r, g, b);
+            //console.log("parsed: " + color);
+            drawColor(ctx0, PX_SIZE_0, x, y, color);
+        }
+    }
+    for (let x = 0; x < WIDTH_1; x++) {
+        for (let y = 0; y < HEIGHT_1; y++) {
+            let byte_offset = len0 + (x * PIXEL_RECORD_SIZE * HEIGHT_1) + (y * PIXEL_RECORD_SIZE);
+            const r = dv.getUint8(byte_offset);
+            const g = dv.getUint8(byte_offset + 1);
+            const b = dv.getUint8(byte_offset + 2);
+            let color = toHexColor(r, g, b);
+            //console.log("parsed: " + color);
+            drawColor(ctx1, PX_SIZE_1, x, y, color);
+        }
+    }
+    for (let x = 0; x < WIDTH_2; x++) {
+        for (let y = 0; y < HEIGHT_2; y++) {
+            let byte_offset = len0 + len1 + (x * PIXEL_RECORD_SIZE * HEIGHT_2) + (y * PIXEL_RECORD_SIZE);
+            const r = dv.getUint8(byte_offset);
+            const g = dv.getUint8(byte_offset + 1);
+            const b = dv.getUint8(byte_offset + 2);
+            let color = toHexColor(r, g, b);
+            //console.log("parsed: " + color);
+            drawColor(ctx2, PX_SIZE_2, x, y, color);
+        }
+    }
+}
+
+
+function ConnectUponLoad() {
+    console.log("connecting");
+    // create websocket instance
+    AppSocket = new WebSocket(WEBSOCKET);
+    // add event listener reacting when message is received
+    AppSocket.onmessage = processReceivedNotification
+    console.log("connected");
+}
+
+window.addEventListener("load", ConnectUponLoad());
+
+//////////////////////////////////////////////////////////////////////////////
+
+
+</script>
+</html>
