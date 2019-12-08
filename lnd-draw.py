@@ -91,7 +91,10 @@ class BannerpunkLndPayment(object):
 
     def get_outgoing_route(self, dst, amount):
         try:
-            q = self.queryroutes(dst, amount)
+            q, err = self.queryroutes(dst, amount)
+            if err:
+                print("could not find route to %s" % (dst))
+                return None
             #print("q r: %s" % q['routes'])
             routes = sorted(q['routes'],key=lambda x: int(x['total_fees_msat']))
             if len(routes) == 0:
@@ -105,15 +108,19 @@ class BannerpunkLndPayment(object):
             return None
 
     def get_circular_hops(self, cheap_route):
-        my_id = self.get_my_id()
+        my_id, err = self.get_my_id()
+        if err:
+            return None
         hop_ids = [h['pub_key'] for h in cheap_route['hops']]
         return_ids = list(reversed(hop_ids[:-1])) + [my_id]
         return hop_ids + return_ids
 
     def run(self):
-        invoice = self.create_invoice()
-        payment_hash = invoice['r_hash']
+        invoice, err = self.create_invoice()
+        if err:
+            return "could not create index"
         print(invoice)
+        payment_hash = invoice['r_hash']
         #sys.exit("pause")
 
         amount = SELF_PAYMENT + self.dst_payment
@@ -123,6 +130,8 @@ class BannerpunkLndPayment(object):
         #print("outgoing: %s" % json.dumps(outgoing, indent=1))
 
         circular_hops = self.get_circular_hops(outgoing)
+        if circular_hops is None:
+            return "could not get circular hops"
         #print("circular hops: %s" % json.dumps(circular_hops, indent=1))
         built_route, err = self.build_route(circular_hops, amount)
         if err:
@@ -212,7 +221,7 @@ def png_func(settings):
     preimages = []
     for pixel_chunk in divide_chunks(pixels, 4):
         preimages.append(Preimage(settings.image_no, pixel_chunk))
-    print(preimages)
+    #print(preimages)
     for preimage in preimages:
         bp = BannerpunkLndPayment(settings.lncli_executable, preimage)
         err = bp.run()
