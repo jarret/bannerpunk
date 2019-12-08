@@ -109,7 +109,7 @@ class App(object):
         return fee >= min_fee
 
     def zmq_message(self, message, tag):
-        d = json.loads(message.decode('utf8'))
+        d = json.loads(message.decode('utf8'))['forward_event']
         print("got %s" % json.dumps(d, indent=1))
 
         if d['status'] != 'settled':

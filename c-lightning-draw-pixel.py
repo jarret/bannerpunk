@@ -94,7 +94,7 @@ class Circular(object):
         pay_result = self.rpc.sendpay(route, payment_hash)
         self.print_dict(pay_result)
         for _ in range(3):
-            l = self.rpc.listpays(bolt11)
+            l = self.rpc.listsendpays(bolt11)
             self.print_dict(l)
             time.sleep(1)
 

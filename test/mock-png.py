@@ -83,9 +83,9 @@ def publish():
     print("starting to publish to %s" % PUBLISH_ENDPOINT)
     for p in TEST_PREIMAGES:
         print("preimage to str: %s" % Preimage.from_hex(p))
-        m = {'preimage': p,
-             'status':  "settled",
-             'fee':     4000}
+        m = {'forward_event': {'preimage': p,
+                               'status':  "settled",
+                               'fee':     4000}}
         msg = json.dumps(m).encode("utf8")
         print("publishing: %s" % msg)
         pub_connection.publish(msg, tag=TAG)
