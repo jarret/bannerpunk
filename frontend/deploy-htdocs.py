@@ -5,6 +5,9 @@ import sys
 import time
 import datetime
 import boto3
+import json
+import logging
+import mimetypes
 
 class CloudFrontDistribution(object):
     def __init__(self, distribution_id):
@@ -24,12 +27,6 @@ class CloudFrontDistribution(object):
         print(json.dumps(i, indent=1, sort_keys=True,
                          default=lambda x: str(x)))
 
-
-import os
-import time
-import logging
-import boto3
-import mimetypes
 
 mimetypes.init()
 mimetypes.add_type("model/gltf+json", '.gltf')
