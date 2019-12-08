@@ -94,7 +94,7 @@ class Preimage(object):
 
         payload = preimage_bin[0:21]
         #print("payload: %s" % payload.hex())
-        checksum = preimage_bin[21:27]
+        checksum = preimage_bin[21:24]
         #print("checksum: %s" % checksum.hex())
         if not Preimage.checksum_matches(payload, checksum):
             #print("bad preimage_bin checksum")
