@@ -217,9 +217,9 @@ function CreateDisplay() {
 }
 
 function drawPixelUpdate(ctx, image_no, pixel) {
-    console.log("x: " + pixel.x);
-    console.log("y: " + pixel.y);
-    console.log("rgb: " + pixel.rgb);
+    //console.log("x: " + pixel.x);
+    //console.log("y: " + pixel.y);
+    //console.log("rgb: " + pixel.rgb);
     if (image_no == 0) {
         drawColor(ctx, PX_SIZE_0, pixel.x, pixel.y, "#" + pixel.rgb);
     } else if (image_no == 1) {
@@ -230,8 +230,8 @@ function drawPixelUpdate(ctx, image_no, pixel) {
 }
 
 function drawPixelUpdates(image_no, pixels) {
-    console.log("image no: " + image_no);
-    console.log("pixels: " + pixels);
+    //console.log("image no: " + image_no);
+    //console.log("pixels: " + pixels);
 
     ctx = getCanvasContext(image_no);
 
