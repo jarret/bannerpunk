@@ -2,7 +2,7 @@
 
 # BannerPunk
 
-For an overall explanation [The Main Page](https://bannerpunk.biz) which is a deployed, running version of this project.
+For an overall explanation, see [the homepage](https://bannerpunk.biz) which is a deployed, running version of this project.
 
 It explains how the pixel drawing messages are sent from a purchaser to a BannerPunk server via Lightning Network transactions.
 
@@ -25,7 +25,7 @@ optional arguments:
   -h, --help        show this help message and exit
 ```
 
-The `manual` mode will perform a single payment with 1, 2, 3 or 4 pixels encoded in a preimage. The image number must be chosen and the pixels must be within the dimensions, as is explained on the main page [the main page](https://bannerpunk.biz).
+The `manual` mode will perform a single payment with 1, 2, 3 or 4 pixels encoded in a preimage. The image number must be chosen and the pixels must be within the dimensions, as is explained on the main page [the homepage](https://bannerpunk.biz).
 
 For LND, the path to the `lncli` binary that can talk to your local `lnd` node must be given as an arg. Eg.
 
