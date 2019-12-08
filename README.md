@@ -6,6 +6,8 @@ For an overall explanation, see [the homepage](https://bannerpunk.biz) which is 
 
 It explains how the pixel drawing messages are sent from a purchaser to a BannerPunk server via Lightning Network transactions.
 
+This was built for [Bolt-A-Thon 2](https://boltathon.com/). For a short guided introduction, please watch [the submission video](https://youtu.be/9xub9jgajkI).
+
 # To Draw Pixels as a Client
 The provided clients for [C-Lightning](c-lightning-draw.py) and [LND](lnd-draw.py) work with nearly-identical CLI interfaces. Both have `manual` mode and `png` mode. The C-Lightning client depends on the official `pylightning` packages (`$ sudo pip3 install pylightning`)
 
