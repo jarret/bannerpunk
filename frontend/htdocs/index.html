@@ -34,13 +34,13 @@ file LICENSE or http://www.opensource.org/licenses/mit-license.php -->
 <meta name="twitter:site" content="@sparkshot_io" />
 <meta name="twitter:title" content="BannerPunk!" />
 <meta name="twitter:description" content="Banner image art space sold with invoiceless micropayments!" />
-<meta name="twitter:image" content="/img/logo.png" />
+<meta name="twitter:image" content="https://bannerpunk.biz/img/logo.png" />
 
 <meta property="og:title" content="BannerPunk!" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="BannerPunk!" />
 <meta property="og:url" content="https://bannerpunk.biz" />
-<meta property="og:image" content="img/logo.png" />
+<meta property="og:image" content="https://bannerpunk.biz/img/logo.png" />
 <meta property="og:image:width" content="430" />
 <meta property="og:image:height" content="195" />
 <meta property="og:image:type" content="image/png" />
@@ -52,7 +52,7 @@ file LICENSE or http://www.opensource.org/licenses/mit-license.php -->
     P.body {
         margin-left: auto;
         margin-right: auto;
-        max-width: 40em;
+        max-width: 43em;
         min-width: 15em;
         margin-top: 20px;
         margin-bottom: 20px;
@@ -69,6 +69,14 @@ file LICENSE or http://www.opensource.org/licenses/mit-license.php -->
       float: left;
       width: 70%;
     }
+    .column-logo {
+      float: left;
+      width: 70%;
+    }
+    .column-logo-side {
+      float: right;
+      width: 30%;
+    }
     .column-grid {
       float: left;
       width: 30%;
@@ -82,63 +90,113 @@ file LICENSE or http://www.opensource.org/licenses/mit-license.php -->
 
 <body>
     <center>
-    <p> For more upcoming LN pixel art action, please <a href="https://twitter.com/sparkshot_io">follow Sparkshot.io on Twitter</a>. </p>
-    <p> Sparkshot is a micropayment-driven art platform. <b>Public beta is starting January, 2020. </b> </p>
+    <P class='body'>
+    <a href="https://sparkshot.io"><img src="img/sparkshot.png" alt="Sparkshot" height=25></a> is our main gig which is a micropayment-driven art platform. <br> <b>Our public beta is starting January, 2020.</b><br> <a href="https://twitter.com/sparkshot_io" target="_blank">follow @sparkshot_io on Twitter for updates</a>.
+    </P>
+
     <hr>
+    <br>
+    <a href="https://bannerpunk.biz"><img src="img/logo.png" alt="BannerPunk!"></a>
+    <br>...was built for the <a href="https://boltathon.com/">Bolt-A-Thon 2</a> hackathon on December 6th, 7th and 8th, 2019.</br>
+    <br><br>
+
+    <!-- banner space 0 -->
     <div id="grid-0"></div>
     <div class= "row">
         <div class="column-text">
         <P class='body'>
-        The rectangle area above this text <i class="fas fa-arrow-up"></i> and beside this text <i class="fas fa-arrow-right"></i> are pixel grids where you may draw pixels via sending special messages as part of lightning network payments to a particular node.
+        The rectangle area above this text <i class="fas fa-arrow-up"></i> and beside this text <i class="fas fa-arrow-right"></i> are pixel grids where you may draw pixels via sending special messages in-band via the Lightning Network. The images will update with the drawings in <b>real-time</b> on this page via websocket.
         </P>
         <P class='body'>
-        These are intended to be like banner ads on your website, but with people able to set the content by paying satoshis.
+        These drawing spaces can be placed like banner ads on your website, such that you can earn satoshis from people that want to set content for your web visitors to see. BannerPunk is open source software and a server can be run with your own Lightning Network node for your own website. <br><a href="https://github.com/jarret/bannerpunk" style="text-decorations:none; color:inherit;" target="_blank"><i class="fab fa-github-square fa-3x"></i></a>
+</a>
         </P>
         <P class='body'>
-        Here is another advertisement space, but the type inline in an article's text body <i class="fas fa-arrow-down"></i>
+        Here is another banner image space, but of the type you typically see that is inline in an article's text body <br><i class="fas fa-arrow-down"></i>
         </P>
+
+        <!-- banner space 2 -->
         <div id="grid-2"></div>
+        <br>
+
+        <h3> How to Draw </h3>
+
         <P class='body'>
-        The top banner ad space is 256 pixels wide and 60 pixels tall with a 3x3 dot size. When writing it is addressable as image number <b>0</b>
+        The banner images on this page can be drawn to by paying <a href="https://1ml.com/node/02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7" target="_blank">our node</a> (inbound channels appreciated). However it needs to be done in a special way, but don't worry, we wrote scripts for <a href="https://github.com/jarret/bannerpunk/blob/master/c-lightning-draw.py" target="_blank">C-Lightning</a> and <a href="https://github.com/jarret/bannerpunk/blob/master/lnd-draw.py" target="_blank">LND</a> to make it easy. More documentation is in the <a href="https://github.com/jarret/bannerpunk/blob/master/README.md" target="_blank">README.md</a>, The content of .pngs can be drawn (at a cost of 1 satoshi per pixel, plus any routing fees) like so:
+        </P>
+        <code class="body">
+        $ ./lnd-draw.py png /path/to/lncli image_no x_offset y_offset /path/to/source/image.png
+        </code>
+        <br>
+        <br>
+
+        <code class="body">
+        $ ./c-lightning-draw.py png /path/to/lightning-rpc image_no x_offset y_offset /path/to/source/image.png
+        </code>
+
+
+        <P class='body'>
+        The top banner ad space is <b>256</b> pixels wide and <b>60</b> pixels tall with a 3x3 dot size. When writing it is addressable as image number <b>0</b>
         </P>
         <P class='body'>
-        The side banner ad space is 60 pixels wide and 256 pixels tall with a 3x3 dot size. When writing it is addressable as image number <b>1</b>
+        The side banner ad space is <b>60</b> pixels wide and <b>256</b> pixels tall with a 3x3 dot size. When writing it is addressable as image number <b>1</b>
         </P>
         <P class='body'>
-        The inline article space is 256 pixels wide and 256 pixels tall with a 1x1 dot size. When writing it is addressable as image number <b>2</b>
+        The inline article space is <b>256</b> pixels wide and <b>256</b> pixels tall with a 1x1 dot size. When writing it is addressable as image number <b>2</b>
         </P>
 
         <P class='body'>
-        We have a C-Lightning plugin and an additional Python scripts on the GitHub repository to assist in performing these special payments. In short, the simplest way is to perform a circular "invoiceless" payment to our node with an encoded preimage.
+        These scripts have software dependencies, so please read <a href="https://github.com/jarret/bannerpunk/blob/master/README.md" target="_blank">the documentation</a>.
         </P>
 
+        <h3> How Drawing Works </h3>
+
         <P class='body'>
-        To set pixels, you must:
+        To draw without the use of the scripts, three things must be done:
         <ol>
-        <li>Encode the image number, pixel coordinates and RGB color values into preimages.</li>
-        <li>Forward a payment through the target node using an encoded preimage.</li>
-        <li>Pay a forwarding fee that is at least 1 satoshi per encoded pixel in the preimage.</li>
+        <li>The image number, pixel coordinates and RGB color values must be encoded into preimages. Only 4 pixels fit per preimage, so larger drawings must do multiple payments.</li>
+        <li>A payment using the encoded preimage mus be Forwarded through the bannerpunk-hosting node.</li>
+        <li>The forwarding payment must pay a forwarding fee to that node that is at least 1 satoshi per encoded pixel</li>
         </ol>
-        For example, the 256-bit preimage <code>045e35787a5c5f357376506035758058613571824ea919efa1f3d6e02ee9b38fed7447</code> is an encoded preimage.
+
+        <h4> Preimage Pixel Encoding </h4>
+
+        <a href="img/pixel_format.png" target="_blank"><img src="img/pixel_format.png" alt="Pixel Format" width="600"></a>
+        <P class='body'>
+        Up to four pixels can be encoded in a 256-bit payment preimage. <a href="https://github.com/jarret/bannerpunk/blob/master/bannerpunk/pixel_preimage.py" target="_blank">pixel_preimage.py</a> provides classes to help with encoding and decoding these values.
+        </P>
+
+        <h4> Forwarding A Payment </h4>
+        <P class='body'>
+        Typically, you might think of Lightning Network payment forwarding as looking like this:
+        </P>
+        <a href="img/forward.png" target="_blank"><img src="img/forward.png" alt="Pixel Format" width="600"></a>
+        <P class='body'>
+        This will work for BannerPunk, however this is <b>not</b> how our example scripts (<a href="https://github.com/jarret/bannerpunk/blob/master/c-lightning-draw.py" target="_blank">C-Lightning</a> and <a href="https://github.com/jarret/bannerpunk/blob/master/lnd-draw.py" target="_blank">LND</a>) operate. This scenario is <b>not ideal</b> because it requires coordination between Alice and Carol to set up and trigger.
         </P>
         <P class='body'>
-        The first byte, <code>04</code> gives two values. The first nibble <code>0</code> specifies the image number this is for (the top one). The second nibble of this byte specifies the number of pixels encoded in the rest of the preimage <code>4</code> in this case.
+        Instead, the easiest way to draw is via setting up a circular payment where Alice pays her own invoice via a route she choses to include the target BannerPunk node.
+        </P>
+        <a href="img/circular.png" target="_blank"><img src="img/circular.png" alt="Pixel Format" width="600"></a>
+        <P class='body'>
+        This enables Alice to set all the parameters and trigger the payment herself without needing to coordinate.
+        </P>
+
+        <h3> Future Improvements </h3>
+
+        <P class='body'>
+        Using/abusing the preimage this way to carry a message payload has disadvantages. Using the upcoming <a href="https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md"target="_blank">TLV message payload</a> functionality would be an improvement, however that is not in widespread support yet.
         </P>
         <P class='body'>
-        The next 5 bytes <code>5e35787a5c</code> specifies the first pixel. <code>5e</code> and <code>35</code> are the pixel coordinate (94, 35). The remaining 3 bytes <code>787a5c</code> are the hex RGB color.
+        The pixel-encoding preimage is also visible by all parties involved in the route. It would be better if it was encrypted as a shared secret between the payer and the BannerPunk target node. Perhaps using <a href="https://crypto.stackexchange.com/questions/45040/can-elliptic-curve-cryptography-encrypt-with-public-key-and-decrypt-with-private" target="_blank">a scheme like this</a>
         </P>
-        <P class='body'>
-        The next 15 bytes <code>5f357376506035758058613571824e</code> are the next 3 pixels encoded in the same fashion.
-        </P>
-        <P class='body'>
-        The next 3 bytes <code>a919ef</code> are a SHA256-based checksum of the previous bytes to help distinguish this preimage from random noise.
-        </P>
-        <P class='body'>
-        The remaining 8 bytes <code>a1f3d6e02ee9b38fed7447</code> are random noise to prevent anyone from knowing this value ahead of time.
-        </P>
+
+        <h3> Thanks! </h3>
+
         </div>
 
         <div class="column-grid">
+        <!-- banner space 1 -->
         <div id="grid-1"></div>
         </div>
     </div>
