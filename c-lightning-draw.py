@@ -8,13 +8,12 @@ import argparse
 from lightning import LightningRpc, Millisatoshi
 
 from bannerpunk.pixel_preimage import Pixel, Preimage
+from bannerpunk.images import IMAGE_SIZES
 
 BANNERPUNK_NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"
-RPC_FILE = "/home/jarret/lightningd-run/lightning-dir/lightning-rpc"
 
 RISK_FACTOR = 10
 
-DST_PAYMENT = 1000
 SELF_PAYMENT = 1000
 
 CLTV_FINAL = 10
@@ -83,23 +82,18 @@ class BannerpunkPayment(object):
     def assemble_circular(self, outgoing, returning):
         route = outgoing['route'] + returning['route']
         self.setup_routing_fee(route)
-
-#        for r in route:
-#            c = r['channel']
-#            info = self.rpc.listchannels(c)
-#            self.print_dict(info)
-
         return route
 
     def send_pay_on_route(self, route, payment_hash, bolt11):
         self.print_dict(route)
-        print(payment_hash)
         pay_result = self.rpc.sendpay(route, payment_hash)
         self.print_dict(pay_result)
         for _ in range(3):
-            l = self.rpc.listsendpays(bolt11)
-            self.print_dict(l)
+            pay = self.rpc.listsendpays(bolt11)['payments'][0]
+            if pay['status'] != "complete":
+                return None
             time.sleep(1)
+        return "payment did not complete"
 
     def run(self):
         myid = self.get_myid()
@@ -119,11 +113,17 @@ class BannerpunkPayment(object):
             return "could not get returning route"
         self.print_dict(returning)
 
-        circular = self.assemble_circular(outgoing, returning)
+        try:
+            circular = self.assemble_circular(outgoing, returning)
+            err = self.send_pay_on_route(circular, payment_hash, bolt11)
+            if err:
+                return err
+        except:
+            return "problem paying circular"
 
-        self.send_pay_on_route(circular, payment_hash, bolt11)
         return None
 
+###############################################################################
 
 def manual_func(settings):
     print("manual_func")
@@ -131,6 +131,8 @@ def manual_func(settings):
         sys.exit("no such file? %s" % settings.lightning_rpc)
     if settings.image_no not in {0, 1, 2}:
         sys.exit("invalid image_no: %d" % settings.image_no)
+    if len(settings.pixel) > 4:
+        sys.exit("too many pixels specified?")
 
     pixels = []
     for pixel in settings.pixel:
@@ -143,13 +145,64 @@ def manual_func(settings):
     print(preimage)
     print(preimage.to_hex())
     bp = BannerpunkPayment(settings.lightning_rpc, preimage)
-    #err = bp.run()
-    #if err:
-    #    print("something went wrong: %s" % err)
+    err = bp.run()
+    if err:
+        sys.exit("something went wrong: %s" % err)
+
+###############################################################################
+
+def divide_chunks(l, n):
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
 
 def png_func(settings):
-    print("png_func")
-    pass
+    try:
+        from PIL import Image
+    except:
+        sys.exit("** could not import pillow library dependency\ntry:\n"
+                 "   $ sudo apt-get install libopenjp2-7 libtiff5\n"
+                 "   $ sudo pip3 install pillow")
+
+    if not os.path.exists(settings.lightning_rpc):
+        sys.exit("no such file? %s" % settings.lightning_rpc)
+    if settings.image_no not in {0, 1, 2}:
+        sys.exit("invalid image_no: %d" % settings.image_no)
+
+    max_x = IMAGE_SIZES[settings.image_no]['width'] - 1
+    max_y = IMAGE_SIZES[settings.image_no]['height'] - 1
+
+    img = Image.open(settings.png_file)
+    width, height = img.size
+    rgb_raw = img.convert("RGB")
+
+    px_data = list(rgb_raw.getdata())
+
+    pixels = []
+    for h in range(height):
+        for w in range(width):
+            x = w + settings.x_offset
+            if x > max_x:
+                sys.exit("cannot draw on x coord %d, out of bounds" % x)
+            y = h + settings.y_offset
+            if y > max_y:
+                sys.exit("cannot draw on y coord %d, out of bounds" % y)
+            y = h + settings.y_offset
+            rgb = "%02x%02x%02x" % px_data[(h * width) + w]
+            pixels.append(Pixel(x, y, rgb))
+
+    #print([str(p) for p in pixels])
+
+
+    preimages = []
+    for pixel_chunk in divide_chunks(pixels, 4):
+        preimages.append(Preimage(settings.image_no, pixel_chunk))
+    print(preimages)
+    for preimage in preimages:
+        bp = BannerpunkPayment(settings.lightning_rpc, preimage)
+        err = bp.run()
+        if err:
+            sys.exit("something went wrong: %s" % err)
+
 
 parser = argparse.ArgumentParser(prog="c-lightning-draw.py")
 
@@ -173,15 +226,15 @@ manual.add_argument('pixel', nargs='+',
 manual.set_defaults(func=manual_func)
 
 
-png.add_argument("lightning-rpc", type=str,
+png.add_argument("lightning_rpc", type=str,
                   help="pay to your c-lightning rpc file for sending calls")
 png.add_argument("image_no", type=int,
                     help="image number to draw to (0, 1, or 2)")
-png.add_argument("x_offest", type=int,
+png.add_argument("x_offset", type=int,
                  help="the x coordinate to begin drawing at")
-png.add_argument("y_offest", type=int,
+png.add_argument("y_offset", type=int,
                  help="the y coordinate to begin drawing at")
-png.add_argument("image", type=str, help="the path to the png file to use")
+png.add_argument("png_file", type=str, help="the path to the png file to use")
 png.set_defaults(func=png_func)
 
 settings = parser.parse_args()

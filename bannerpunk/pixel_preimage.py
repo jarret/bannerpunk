@@ -162,11 +162,11 @@ class Preimage(object):
         p4_slug = (self.pixels[3].to_bin() if self.n_pixels > 3 else
                    self.noise_slug(5))
         payload = first + p1_slug + p2_slug + p3_slug + p4_slug
-        print("len payload: %d" % len(payload))
+        #print("len payload: %d" % len(payload))
         checksum = Preimage.do_checksum(payload)
-        print("len checksum: %d" % len(checksum))
+        #print("len checksum: %d" % len(checksum))
         end_slug = self.noise_slug(8)
-        print("len end_slug: %d" % len(end_slug))
+        #print("len end_slug: %d" % len(end_slug))
         return payload + checksum + end_slug
 
     def to_hex(self):
