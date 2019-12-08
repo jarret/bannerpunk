@@ -7,7 +7,7 @@ For an overall explanation [The Main Page](https://bannerpunk.biz) which is a de
 It explains how the pixel drawing messages are sent from a purchaser to a BannerPunk server via Lightning Network transactions.
 
 # To Draw Pixels as a Client
-The provided clients for [C-Lightning](c-lightning-draw.py) and [LND](lnd-draw.py) work with nearly-identical CLI interfaces. Both have `manual` mode and `png` mode. The c-lightning client depends on the official `pylightning` packages (`$ sudo pip3 install pylightning`)
+The provided clients for [C-Lightning](c-lightning-draw.py) and [LND](lnd-draw.py) work with nearly-identical CLI interfaces. Both have `manual` mode and `png` mode. The C-Lightning client depends on the official `pylightning` packages (`$ sudo pip3 install pylightning`)
 
 ## manual mode
 
@@ -60,7 +60,9 @@ optional arguments:
 The `png` mode of the scripts will take a PNG image file as an input and issue multiple payments to paint it on the banner image at chosen coordinates. It will pay 1 satoshi per pixel - so tiny images are better for testing.
 
 Both scripts require the Python package `pillow` and dependencies for interpreting .png images:
+
 `sudo apt-get install libopenjp2-7 libtiff5`
+
 `sudo pip3 install pillow`
 
 Eg.
@@ -69,7 +71,7 @@ Eg.
 
 will draw the chosen .png image to image 0 with the upper-left corner placed at the 10,10 coordinate, *paying 1 satoshi per pixel*.
 
-The equivalent for the c-lightning script is:
+The equivalent for the C-Lightning script is:
 
 `$ ./c-lightning-draw.py png /path/to/lightning-rpc 0 10 10 /path/to/chosen/image.png`
 
@@ -85,10 +87,15 @@ The components are configured like this:
 You will need to be running C-Lightning v0.7.3 patched with [a minor hack applied](c-lightning-hacky-patch.diff) that we wrote. This patch makes available the preimage value of forwarded payments to the plugin infrastructure.
 
 `$ git clone https://github.com/ElementsProject/lightning`
+
 `$ cd lightning`
+
 `$ git checkout v0.7.3`
+
 `$ git apply /path/to/c-lightning-hack-patch.diff`
+
 `$ ./configure`
+
 `$ make`
 
 ## Boot with ZeroMQ plugin
