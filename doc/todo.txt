@@ -2,9 +2,9 @@
 finish c-lightning script (done)
 diagrams (done)
 cloudfront websocket ssl (done)
+-> opengraph/twitter cards w/logo (done)
 
 -> check success status for LND-
--> opengraph/twitter cards w/logo
 -> pixel bounds checking for image dimensions
 
 -> c-lightning jukebox pay
