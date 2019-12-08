@@ -136,10 +136,6 @@ class S3BucketDeploy(S3Interface):
         for src_path in self._iter_htdocs():
             self.put_file(src_path, self.dst_path(src_path))
 
-if not os.path.exists(".git/"):
-    sys.exit("*** Must be executed from base of the git repository.")
-
-
 
 SOURCE_DIR = "htdocs/"
 S3_BUCKET = "bannerpunk.biz"
