@@ -136,8 +136,7 @@ class S3BucketDeploy(S3Interface):
 
 SOURCE_DIR = "htdocs/"
 S3_BUCKET = "bannerpunk.biz"
-CLOUDFRONT_DISTRIBUTION = "E2OG3NPN80MPK0"
-
+CLOUDFRONT_DISTRIBUTION = "E306SI25S8U7B"
 start_time = time.time()
 s3 = S3BucketDeploy(SOURCE_DIR, S3_BUCKET)
 s3.put_dir()
