@@ -61,9 +61,9 @@ The `png` mode of the scripts will take a PNG image file as an input and issue m
 
 Both scripts require the Python package `pillow` and dependencies for interpreting .png images:
 
-`sudo apt-get install libopenjp2-7 libtiff5`
+`$ sudo apt-get install libopenjp2-7 libtiff5`
 
-`sudo pip3 install pillow`
+`$ sudo pip3 install pillow`
 
 Eg.
 
@@ -113,7 +113,7 @@ Eg.
 
 The server listens on ZeroMQ endpoints and publishes the art images via websockets. It utilizes Twisted, Autobahn, and TxZMQ as dependencies.
 
-`sudo pip3 install twisted txzmq autobahn`
+`$ sudo pip3 install twisted txzmq autobahn`
 
 The ZeroMQ and websocket connection points can be specified as boot args:
 
