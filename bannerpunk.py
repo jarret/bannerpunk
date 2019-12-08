@@ -45,7 +45,7 @@ class AppClient(WebSocketServerProtocol):
 class AppServer(WebSocketServerFactory):
     def __init__(self, port, app):
         ws_url = u"ws://0.0.0.0:%d" % port
-        super().__init__(ws_url)
+        super().__init__()
         self.protocol = AppClient
         self.protocol.server = self
         self.clients = []
