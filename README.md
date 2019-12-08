@@ -69,7 +69,7 @@ Eg.
 
 `$ ./lnd-draw.py png /path/to/lcli 0 10 10 /path/to/chosen/image.png`
 
-will draw the chosen .png image to image 0 with the upper-left corner placed at the 10,10 coordinate, *paying 1 satoshi per pixel*.
+will draw the chosen .png image to image 0 with the upper-left corner placed at the 10,10 coordinate, **paying 1 satoshi per pixel**.
 
 The equivalent for the C-Lightning script is:
 
