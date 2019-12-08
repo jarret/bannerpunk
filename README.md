@@ -2,7 +2,7 @@
 
 # BannerPunk
 
-For an overall explaination [The Main Page](https://bannerpunk.biz) which is a deployed, running version of this project.
+For an overall explanation [The Main Page](https://bannerpunk.biz) which is a deployed, running version of this project.
 
 It explains how the pixel drawing messages are sent from a purchaser to a BannerPunk server via Lightning Network transactions.
 
@@ -10,13 +10,28 @@ It explains how the pixel drawing messages are sent from a purchaser to a Banner
 The provided clients for [C-Lightning](c-lightning-draw.py) and [LND](lnd-draw.py) work with nearly-identical CLI interfaces. Both have `manual` mode and `png` mode. The c-lightning client depends on the official `pylightning` packages (`$ sudo pip3 install pylightning`)
 
 ## manual mode
+
+```
+$ ./lnd-draw.py manual -h
+usage: lnd-draw.py manual [-h] lncli_executable image_no pixel [pixel ...]
+
+positional arguments:
+  lncli_executable  path to the lncli executable for interfacing with lnd
+  image_no          image number to draw to (0, 1, or 2)
+  pixel             a list of one, two, three or four pixels to draw in the
+                    format x,y,rgb, eg. 10,20,44ffee
+
+optional arguments:
+  -h, --help        show this help message and exit
+```
+
 The `manual` mode will perform a single payment with 1, 2, 3 or 4 pixels encoded in a preimage. The image number must be chosen and the pixels must be within the dimensions, as is explained on the main page [the main page](https://bannerpunk.biz).
 
 For LND, the path to the `lncli` binary that can talk to your local `lnd` node must be given as an arg. Eg.
 
 `$ ./lnd-draw.py manual /path/to/lcli 0 5,5,ff0000 6,6,00ff00, 7,7,0000ff`
 
-Will pay 3 satoshis (plus additional routing fees) to draw three pixels on image 0 at the specified coordinates with the specified 24-bit hex colors.
+will pay 3 satoshis (plus additional routing fees) to draw three pixels on image 0 at the specified coordinates with the specified 24-bit hex colors.
 
 For C-Lightning, the path to the `lightning-rpc` file must be given as an arg. Eg.
 
@@ -25,6 +40,22 @@ For C-Lightning, the path to the `lightning-rpc` file must be given as an arg. E
 will pay 3 satoshis to do the same.
 
 ## png mode
+
+```
+$ ./lnd-draw.py png -h
+usage: lnd-draw.py png [-h]
+                       lncli_executable image_no x_offset y_offset png_file
+
+positional arguments:
+  lncli_executable  path to the lncli executable for interfacing with lnd
+  image_no          image number to draw to (0, 1, or 2)
+  x_offset          the x coordinate to begin drawing at
+  y_offset          the y coordinate to begin drawing at
+  png_file          the path to the png file to use
+
+optional arguments:
+  -h, --help        show this help message and exit
+```
 
 The `png` mode of the scripts will take a PNG image file as an input and issue multiple payments to paint it on the banner image at chosen coordinates. It will pay 1 satoshi per pixel - so tiny images are better for testing.
 
@@ -36,7 +67,7 @@ Eg.
 
 `$ ./lnd-draw.py png /path/to/lcli 0 10 10 /path/to/chosen/image.png`
 
-Will draw the chosen .png image to image 0 with the upper-left corner placed at the 10,10 coordinate.
+will draw the chosen .png image to image 0 with the upper-left corner placed at the 10,10 coordinate, *paying 1 satoshi per pixel*.
 
 The equivalent for the c-lightning script is:
 
@@ -45,6 +76,8 @@ The equivalent for the c-lightning script is:
 
 # To Setup Your Own BannerPunk Server to Earn
 
+## At a high level
+The components are configured like this:
 
 ![ServerSetup](frontend/htdocs/img/server_setup.png "server setup")
 
