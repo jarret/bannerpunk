@@ -106,7 +106,7 @@ To run the plugin, `cl-zmq.py` will need to be copied to the plugin directory. T
 
 Eg.
 
-`./lightningd <other boot options> -zmq-pub-forward-event=tcp://127.0.0.1:5556`
+`./lightningd <other boot options> --zmq-pub-forward-event=tcp://127.0.0.1:5556`
 
 
 ## Run the BannerPunk server
