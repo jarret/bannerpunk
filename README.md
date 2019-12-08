@@ -1,48 +1,101 @@
-# Bannerpunk
+![BannerPunk Logo](frontend/htdocs/img/logo.png "BannerPunk logo")
 
-A lightning node that is forwarding a payment obtains two things
-a) a fee
-b) a preimage
+# BannerPunk
 
-Here, the node, with the help of some software, if a sufficient forwarding fee is paid the node will interpet the preimage as pixel data and publish it via websocket.
+For an overall explaination [The Main Page](https://bannerpunk.biz) which is a deployed, running version of this project.
 
-# To draw pixels
+It explains how the pixel drawing messages are sent from a purchaser to a BannerPunk server via Lightning Network transactions.
 
-Run a circular payment script with the correct preimage and fee for the target node.
+# To Draw Pixels as a Client
+The provided clients for [C-Lightning](c-lightning-draw.py) and [LND](lnd-draw.py) work with nearly-identical CLI interfaces. Both have `manual` mode and `png` mode. The c-lightning client depends on the official `pylightning` packages (`$ sudo pip3 install pylightning`)
 
-Here is [a WIP example](circular.py)
+## manual mode
+The `manual` mode will perform a single payment with 1, 2, 3 or 4 pixels encoded in a preimage. The image number must be chosen and the pixels must be within the dimensions, as is explained on the main page [the main page](https://bannerpunk.biz).
 
-This borrows logic/inspiration from the [sendinvoiceless.py](https://github.com/lightningd/plugins/blob/master/sendinvoiceless/sendinvoiceless.py) plugin.
+For LND, the path to the `lncli` binary that can talk to your local `lnd` node must be given as an arg. Eg.
 
-* TODO - package as c-lightning plugin
-* TODO - do the LND equavalent script
-* TODO - script to unpack .png image into draw instructions (document package dependencies for image processing libs!)
+`$ ./lnd-draw.py manual /path/to/lcli 0 5,5,ff0000 6,6,00ff00, 7,7,0000ff`
 
-# The Frontend
+Will pay 3 satoshis (plus additional routing fees) to draw three pixels on image 0 at the specified coordinates with the specified 24-bit hex colors.
 
-The example frontend which connects to the websocket app server and draws the pixels - as well as real-time updates (like satoshis.place) - is provided in the [htdocs](htdocs/) directory.
+For C-Lightning, the path to the `lightning-rpc` file must be given as an arg. Eg.
 
-# Dependencies for running the server
+`$ ./c-lightning-draw.py manual /path/to/lightning-rpc 0 5,5,ff0000 6,6,00ff00, 7,7,0000ff`
 
-depends on txzmq, Twisted, autobahn
+will pay 3 satoshis to do the same.
 
-`sudo pip3 install txzmq twisted autobahn`
+## png mode
 
-# To Run Server With Node
+The `png` mode of the scripts will take a PNG image file as an input and issue multiple payments to paint it on the banner image at chosen coordinates. It will pay 1 satoshi per pixel - so tiny images are better for testing.
 
-1. The current lates c-lightning release (v0.7.3) will need to be patched with [this horrible hack](c-lightning-hack.diff) in order to expose the preimage involved in a forwarded payment to the plugin. (Before judging the quality of this code, recall half the theme of the competition is `Hack`).
-
-2. The c-lightning node will also need to run with [this plugin](https://github.com/lightningd/plugins/pull/70) for publishing plugin notiviations via ZeroMQ. (this plugin was wlso written by us, eyeballs/test/review appreciated).
-
-3. C-Lightning will need to be booted with a launch arg to configure the ZeroMQ publishing to an endpoint. Eg `--zmq-pub-forward-event=tcp//0.0.0.0:5556`
-
-4. The [app server program](bat.py) will need to be run and configured to listen at the ZeroMQ for forward events. This will also accept websocket connections from browser clients running.
-
-# Test the websocket and frontend without a lightning node
-
-Since setting up nodes and payments is cumbersome for development a [mock publisher](mock-random.py) app is provided which publishes preimage-like values to the ZMQ endpoint for the websocket app server to catch and process.
-
-
-reqires `pillow` and dependancies for interpeting .png images
+Both scripts require the Python package `pillow` and dependencies for interpreting .png images:
 `sudo apt-get install libopenjp2-7 libtiff5`
 `sudo pip3 install pillow`
+
+Eg.
+
+`$ ./lnd-draw.py png /path/to/lcli 0 10 10 /path/to/chosen/image.png`
+
+Will draw the chosen .png image to image 0 with the upper-left corner placed at the 10,10 coordinate.
+
+The equivalent for the c-lightning script is:
+
+`$ ./c-lightning-draw.py png /path/to/lightning-rpc 0 10 10 /path/to/chosen/image.png`
+
+
+# To Setup Your Own BannerPunk Server to Earn
+
+
+![ServerSetup](frontend/htdocs/img/server_setup.png "server setup")
+
+## Patch C-Lightning
+You will need to be running C-Lightning v0.7.3 patched with [a minor hack applied](c-lightning-hacky-patch.diff) that we wrote. This patch makes available the preimage value of forwarded payments to the plugin infrastructure.
+
+`$ git clone https://github.com/ElementsProject/lightning`
+`$ cd lightning`
+`$ git checkout v0.7.3`
+`$ git apply /path/to/c-lightning-hack-patch.diff`
+`$ ./configure`
+`$ make`
+
+## Boot with ZeroMQ plugin
+
+The C-Lightning node will also need to be run with [this plugin](https://github.com/lightningd/plugins/pull/70) for publishing plugin notifications via ZeroMQ such that the BannerPunk server can get notice of forwarded payments. (this plugin was wlso written by us, eyeballs/test/review very much appreciated). We put a copy of this plugin in this repo [here](depends/cl-zmq.py)
+
+To run the plugin, `cl-zmq.py` will need to be copied to the plugin directory. To configure publication of [`forward_event`](https://github.com/ElementsProject/lightning/blob/master/doc/PLUGINS.md#forward_event) notifications to a ZeroMQ, C-Lightning will need to be booted with the `--zmq-pub-forward-event` option added by the plugin.
+
+Eg.
+
+`./lightningd <other boot options> -zmq-pub-forward-event=tcp://127.0.0.1:5556`
+
+
+## Run the BannerPunk server
+
+The server listens on ZeroMQ endpoints and publishes the art images via websockets. It utilizes Twisted, Autobahn, and TxZMQ as dependencies.
+
+`sudo pip3 install twisted txzmq autobahn`
+
+The ZeroMQ and websocket connection points can be specified as boot args:
+
+```
+$ ./bannerpunk.py -h
+usage: bannerpunk.py [-h] [-e ENDPOINT] [-m MOCK_ENDPOINT] [-w WEBSOCKET_PORT]
+                     [-a ART_DB_DIR]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -e ENDPOINT, --endpoint ENDPOINT
+                        endpoint to subscribe to for zmq notifications from
+                        c-lightning via cl-zmq.py plugin
+  -m MOCK_ENDPOINT, --mock-endpoint MOCK_ENDPOINT
+                        endpoint to subscribe to zmq notifcations from a test
+                        script such as mock-png.py
+  -w WEBSOCKET_PORT, --websocket-port WEBSOCKET_PORT
+                        port to listen for incoming websocket connections
+  -a ART_DB_DIR, --art-db-dir ART_DB_DIR
+                        directory to save the image state and logs
+```
+
+The `ART_DB_DIR` should be a writable directory for BannerPunk to persist the state of the pixel grids. This allows the server to restart without resetting the art. It also logs all accepted preimages along with the timestamp received (such that a replay can be constructed later).
+
+The `MOCK_ENDPOINT` is an additional ZeroMQ endpoint to subscribe on. It is intended to be used with the [provided test script](test/mock-png.py) for feeding it valid preimages without the presence of an operating C-Lightning node and without the need to pay in order to set the pixel state. This might also be useful for 'administering' a server to erase content if desired.
