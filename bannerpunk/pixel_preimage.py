@@ -1,5 +1,6 @@
 import os
 import hashlib
+import string
 
 from bannerpunk.images import IMAGE_SIZES
 
@@ -13,6 +14,8 @@ class Pixel(object):
         assert y <= MAX_Y
         assert y >= 0
         assert len(rgb) == 6
+        for c in rgb:
+            assert c in string.hexdigits
 
         self.x = x
         self.y = y
@@ -20,6 +23,35 @@ class Pixel(object):
 
     def __str__(self):
         return "(%d,%d,%s)" % (self.x, self.y, self.rgb)
+
+    def from_string(pixel_str):
+        if pixel_str[0] != "(":
+            return None
+        if pixel_str[-1] != ")":
+            return None
+        l = pixel_str[1:-1].split(",")
+        if len(l) != 3:
+            return None
+        try:
+            x = int(l[0])
+            y = int(l[1])
+        except:
+            return None
+        rgb = l[2]
+        if x < 0:
+            return None
+        if x > MAX_X:
+            return None
+        if y < 0:
+            return None
+        if y > MAX_Y:
+            return None
+        if len(rgb) != 6:
+            return None
+        for c in rgb:
+            if c not in string.hexdigits:
+                return None
+        return Pixel(x, y, rgb)
 
     def from_bin(pixel_bin):
         x_bin = pixel_bin[0:1]
@@ -35,6 +67,7 @@ class Pixel(object):
         y_bin = self.y.to_bytes(1, byteorder='big')
         rgb_bin = bytearray.fromhex(self.rgb)
         return x_bin + y_bin + rgb_bin
+
 
 
 class Preimage(object):
@@ -100,7 +133,7 @@ class Preimage(object):
 
     def do_checksum(payload):
         digest = hashlib.sha256(payload).digest()
-        return digest[0:6]
+        return digest[0:3]
 
     def checksum_matches(payload, checksum):
         #print("payload: %s" % payload.hex())
@@ -129,8 +162,11 @@ class Preimage(object):
         p4_slug = (self.pixels[3].to_bin() if self.n_pixels > 3 else
                    self.noise_slug(5))
         payload = first + p1_slug + p2_slug + p3_slug + p4_slug
+        print("len payload: %d" % len(payload))
         checksum = Preimage.do_checksum(payload)
+        print("len checksum: %d" % len(checksum))
         end_slug = self.noise_slug(8)
+        print("len end_slug: %d" % len(end_slug))
         return payload + checksum + end_slug
 
     def to_hex(self):

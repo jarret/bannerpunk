@@ -160,7 +160,7 @@ DEFAULT_MOCK_ZMQ_SUBSCRIBE_ENDPOINT = "tcp://127.0.0.1:5557"
 
 DEFAULT_ART_DB_DIR = "/tmp/bannerpunk/"
 
-parser = argparse.ArgumentParser(prog="app.py")
+parser = argparse.ArgumentParser(prog="bannerpunk.py")
 parser.add_argument("-e", "--endpoint", type=str,
                     default=DEFAULT_ZMQ_SUBSCRIBE_ENDPOINT,
                     help="endpoint to subscribe to for zmq notifications from "
