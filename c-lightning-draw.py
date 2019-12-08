@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import time
 import os
+import sys
 import uuid
 import json
 import pprint
@@ -12,13 +13,15 @@ from bannerpunk.images import IMAGE_SIZES
 
 BANNERPUNK_NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"
 
+#BANNERPUNK_NODE = "0379c41f28a38c49998fec42437db78a17af508fb19338e7360d7ffee2607ea036"
+
 RISK_FACTOR = 10
 
-SELF_PAYMENT = 1000
+SELF_PAYMENT = 1000 # in millisatoshis
 
 CLTV_FINAL = 10
 
-class BannerpunkPayment(object):
+class BannerpunkCLightningPayment(object):
     def __init__(self, lightning_rpc, preimage):
         self.n_pixels = preimage.n_pixels
         self.dst_payment = 1000 * self.n_pixels
@@ -57,7 +60,7 @@ class BannerpunkPayment(object):
                                                          myid))
             return None
 
-    def setup_routing_fee(self, route):
+    def rework_routing_fees(self, route):
         # Thanks to sendinvoiceless.py plugin for this function!
         delay = int(CLTV_FINAL)
         msatoshi = Millisatoshi(SELF_PAYMENT)
@@ -81,7 +84,7 @@ class BannerpunkPayment(object):
 
     def assemble_circular(self, outgoing, returning):
         route = outgoing['route'] + returning['route']
-        self.setup_routing_fee(route)
+        self.rework_routing_fees(route)
         return route
 
     def send_pay_on_route(self, route, payment_hash, bolt11):
@@ -97,21 +100,21 @@ class BannerpunkPayment(object):
 
     def run(self):
         myid = self.get_myid()
-        print(myid)
+        #print(myid)
         invoice = self.create_invoice()
-        self.print_dict(invoice)
+        #self.print_dict(invoice)
         payment_hash = invoice['payment_hash']
         bolt11 = invoice['bolt11']
 
         outgoing = self.get_outgoing_route()
         if not outgoing:
             return "could not get outgoing route"
-        self.print_dict(outgoing)
+        #self.print_dict(outgoing)
 
         returning = self.get_returning_route(myid)
         if not returning:
             return "could not get returning route"
-        self.print_dict(returning)
+        #self.print_dict(returning)
 
         try:
             circular = self.assemble_circular(outgoing, returning)
@@ -121,6 +124,7 @@ class BannerpunkPayment(object):
         except:
             return "problem paying circular"
 
+        print("payment succeded!")
         return None
 
 ###############################################################################
@@ -142,9 +146,9 @@ def manual_func(settings):
         pixels.append(p)
 
     preimage = Preimage(settings.image_no, pixels)
-    print(preimage)
-    print(preimage.to_hex())
-    bp = BannerpunkPayment(settings.lightning_rpc, preimage)
+    #print(preimage)
+    #print(preimage.to_hex())
+    bp = BannerpunkCLightningPayment(settings.lightning_rpc, preimage)
     err = bp.run()
     if err:
         sys.exit("something went wrong: %s" % err)
@@ -198,7 +202,7 @@ def png_func(settings):
         preimages.append(Preimage(settings.image_no, pixel_chunk))
     print(preimages)
     for preimage in preimages:
-        bp = BannerpunkPayment(settings.lightning_rpc, preimage)
+        bp = BannerpunkCLightningPayment(settings.lightning_rpc, preimage)
         err = bp.run()
         if err:
             sys.exit("something went wrong: %s" % err)
@@ -207,8 +211,9 @@ def png_func(settings):
 parser = argparse.ArgumentParser(prog="c-lightning-draw.py")
 
 subparsers = parser.add_subparsers(title='subcommands',
-                                   description='valid subcommands',
-                                   help='additional help')
+                                   description='selects style of drawing',
+                                   help='manually enter pixels or use .png')
+
 manual = subparsers.add_parser('manual', help="draw manually specified pixels")
 png = subparsers.add_parser('png',
                             help="draw from a provided .png file "
@@ -216,7 +221,7 @@ png = subparsers.add_parser('png',
                                  "and dependencies)")
 
 manual.add_argument("lightning_rpc", type=str,
-                    help="pay to your c-lightning rpc file for sending calls")
+                    help="path to your c-lightning rpc file for sending calls")
 manual.add_argument("image_no", type=int,
                     help="image number to draw to (0, 1, or 2)")
 manual.add_argument('pixel', nargs='+',
@@ -227,7 +232,7 @@ manual.set_defaults(func=manual_func)
 
 
 png.add_argument("lightning_rpc", type=str,
-                  help="pay to your c-lightning rpc file for sending calls")
+                  help="path to your c-lightning rpc file for sending calls")
 png.add_argument("image_no", type=int,
                     help="image number to draw to (0, 1, or 2)")
 png.add_argument("x_offset", type=int,
@@ -240,6 +245,7 @@ png.set_defaults(func=png_func)
 settings = parser.parse_args()
 
 print(settings)
-
-settings.func(settings)
-
+if hasattr(settings, "func"):
+    settings.func(settings)
+else:
+    sys.exit("no subcommand?")
