@@ -89,7 +89,7 @@ def publish():
         msg = json.dumps(m).encode("utf8")
         print("publishing: %s" % msg)
         pub_connection.publish(msg, tag=TAG)
-        time.sleep(0.02)
+        #time.sleep(0.02)
     reactor.stop()
 
 reactor.callLater(1.0, publish)
