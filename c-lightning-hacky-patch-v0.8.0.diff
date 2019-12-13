@@ -1,0 +1,138 @@
+diff --git a/lightningd/notification.c b/lightningd/notification.c
+index 4877805d..572b2bfb 100644
+--- a/lightningd/notification.c
++++ b/lightningd/notification.c
+@@ -183,7 +183,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
+ {
+ 	/* Here is more neat to initial a forwarding structure than
+ 	 * to pass in a bunch of parameters directly*/
+-	struct forwarding *cur = tal(tmpctx, struct forwarding);
++	struct forwarding_hack *cur = tal(tmpctx, struct forwarding_hack);
+ 	cur->channel_in = *in->key.channel->scid;
+ 	cur->msat_in = in->msat;
+ 	if (out) {
+@@ -196,12 +196,17 @@ static void forward_event_notification_serialize(struct json_stream *stream,
+ 		cur->fee = AMOUNT_MSAT(0);
+ 	}
+ 	cur->payment_hash = tal_dup(cur, struct sha256, &in->payment_hash);
++    if (state == FORWARD_SETTLED) {
++	    cur->preimage = tal_dup(cur, struct preimage, in->preimage);
++    } else {
++        cur->preimage = NULL;
++    }
+ 	cur->status = state;
+ 	cur->failcode = failcode;
+ 	cur->received_time = in->received_time;
+ 	cur->resolved_time = tal_steal(cur, resolved_time);
+ 
+-	json_format_forwarding_object(stream, "forward_event", cur);
++	json_format_forwarding_object_hack(stream, "forward_event", cur);
+ }
+ 
+ REGISTER_NOTIFICATION(forward_event,
+diff --git a/lightningd/peer_htlcs.c b/lightningd/peer_htlcs.c
+index c71e23fc..fe8000e7 100644
+--- a/lightningd/peer_htlcs.c
++++ b/lightningd/peer_htlcs.c
+@@ -2284,6 +2284,59 @@ void json_format_forwarding_object(struct json_stream *response,
+ 	json_object_end(response);
+ }
+ 
++void json_format_forwarding_object_hack(struct json_stream *response,
++				   const char *fieldname,
++				   const struct forwarding_hack *cur)
++{
++	json_object_start(response, fieldname);
++
++	/* See 6d333f16cc0f3aac7097269bf0985b5fa06d59b4: we may have deleted HTLC. */
++	if (cur->payment_hash)
++		json_add_sha256(response, "payment_hash", cur->payment_hash);
++    json_add_preimage(response, "preimage", cur->preimage);
++	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
++
++	/* This can be unknown if we failed before channel lookup */
++	if (cur->channel_out.u64 != 0 || deprecated_apis)
++		json_add_short_channel_id(response, "out_channel",
++					  &cur->channel_out);
++	json_add_amount_msat_compat(response,
++				    cur->msat_in,
++				    "in_msatoshi", "in_msat");
++
++	/* These can be unset (aka zero) if we failed before channel lookup */
++	if (cur->channel_out.u64 != 0 || deprecated_apis) {
++		json_add_amount_msat_compat(response,
++					    cur->msat_out,
++					    "out_msatoshi",  "out_msat");
++		json_add_amount_msat_compat(response,
++					    cur->fee,
++					    "fee", "fee_msat");
++	}
++	json_add_string(response, "status", forward_status_name(cur->status));
++
++	if(cur->failcode != 0) {
++		json_add_num(response, "failcode", cur->failcode);
++		json_add_string(response, "failreason",
++				onion_type_name(cur->failcode));
++	}
++
++#ifdef COMPAT_V070
++		/* If a forwarding doesn't have received_time it was created
++		 * before we added the tracking, do not include it here. */
++	if (cur->received_time.ts.tv_sec) {
++		json_add_timeabs(response, "received_time", cur->received_time);
++		if (cur->resolved_time)
++			json_add_timeabs(response, "resolved_time", *cur->resolved_time);
++	}
++#else
++	json_add_timeabs(response, "received_time", cur->received_time);
++	if (cur->resolved_time)
++		json_add_timeabs(response, "resolved_time", *cur->resolved_time);
++#endif
++	json_object_end(response);
++}
++
+ 
+ static void listforwardings_add_forwardings(struct json_stream *response, struct wallet *wallet)
+ {
+diff --git a/lightningd/peer_htlcs.h b/lightningd/peer_htlcs.h
+index fdf0b4e4..397dbd16 100644
+--- a/lightningd/peer_htlcs.h
++++ b/lightningd/peer_htlcs.h
+@@ -15,6 +15,7 @@ struct htlc_out_map;
+ struct htlc_stub;
+ struct lightningd;
+ struct forwarding;
++struct forwarding_hack;
+ struct json_stream;
+ 
+ /* FIXME: Define serialization primitive for this? */
+@@ -78,4 +79,6 @@ void fail_htlc(struct htlc_in *hin, enum onion_type failcode);
+  * `listforwardings_add_forwardings()`. */
+ void json_format_forwarding_object(struct json_stream *response, const char *fieldname,
+ 				   const struct forwarding *cur);
++void json_format_forwarding_object_hack(struct json_stream *response, const char *fieldname,
++				   const struct forwarding_hack *cur);
+ #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */
+diff --git a/wallet/wallet.h b/wallet/wallet.h
+index 66a1f0e8..6520a671 100644
+--- a/wallet/wallet.h
++++ b/wallet/wallet.h
+@@ -198,6 +198,18 @@ struct forwarding {
+ 	struct timeabs *resolved_time;
+ };
+ 
++struct forwarding_hack {
++	struct short_channel_id channel_in, channel_out;
++	struct amount_msat msat_in, msat_out, fee;
++	struct sha256 *payment_hash;
++    struct preimage *preimage;
++	enum forward_status status;
++	enum onion_type failcode;
++	struct timeabs received_time;
++	/* May not be present if the HTLC was not resolved yet. */
++	struct timeabs *resolved_time;
++};
++
+ /* A database backed shachain struct. The datastructure is
+  * writethrough, reads are performed from an in-memory version, all
+  * writes are passed through to the DB. */
