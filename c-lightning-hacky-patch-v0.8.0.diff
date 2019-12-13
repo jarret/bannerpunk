@@ -1,3 +1,17 @@
+diff --git a/lightningd/json.c b/lightningd/json.c
+index b5b77c4d..8474cace 100644
+--- a/lightningd/json.c
++++ b/lightningd/json.c
+@@ -447,6 +447,9 @@ void json_add_sha256(struct json_stream *result, const char *fieldname,
+ void json_add_preimage(struct json_stream *result, const char *fieldname,
+ 		     const struct preimage *preimage)
+ {
++    if (preimage == NULL) {
++        return;
++    }
+ 	json_add_hex(result, fieldname, preimage, sizeof(*preimage));
+ }
+ 
 diff --git a/lightningd/notification.c b/lightningd/notification.c
 index 4877805d..572b2bfb 100644
 --- a/lightningd/notification.c
