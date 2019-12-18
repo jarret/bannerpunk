@@ -1,4 +1,4 @@
-from util import b2i, b2h
+from util import b2i, b2h, h2i, i2h
 from tlv import Tlv
 
 class Namespace:
@@ -54,32 +54,65 @@ class Namespace:
 
     ###########################################################################
 
+    def _minimal_bytes(int_value):
+        assert int_value <= 0xffffffffffffffff, "value too big for encoding"
+        if int_value == 0:
+            return 0
+        if int_value <= 0xff:
+            return 1
+        if int_value <= 0xffff:
+            return 2
+        if int_value <= 0xffffff:
+            return 3
+        if int_value <= 0xffffffff:
+            return 4
+        if int_value <= 0xffffffffff:
+            return 5
+        if int_value <= 0xffffffffffff:
+            return 6
+        if int_value <= 0xffffffffffffff:
+            return 7
+        if int_value <= 0xffffffffffffffff:
+            return 8
+
     @staticmethod
     def pop_tu16(n_bytes, byte_string):
-        assert n_bytes <= 2, "cannot pop more than 2 bytes for a tu16"
+        if n_bytes > 2:
+            return None, None, "cannot pop more than 2 bytes for a tu16"
         if len(byte_string) < n_bytes:
             return None, None, "underrun while popping tu16"
         if n_bytes == 0:
             return 0, byte_string, None
-        return b2i(byte_string[:n_bytes]), byte_string[n_bytes:], None
+        val = b2i(byte_string[:n_bytes])
+        if n_bytes != Namespace._minimal_bytes(val):
+            return None, None, "not minimal encoding for value"
+        return val, byte_string[n_bytes:], None
 
     @staticmethod
     def pop_tu32(n_bytes, byte_string):
-        assert n_bytes <= 4, "cannot pop more than 4 bytes for a tu32"
+        if n_bytes > 4:
+            return None, None, "cannot pop more than 4 bytes for a tu32"
         if len(byte_string) < n_bytes:
             return None, None, "underrun while popping tu32"
         if n_bytes == 0:
             return 0, byte_string, None
-        return b2i(byte_string[:n_bytes]), byte_string[n_bytes:], None
+        val = b2i(byte_string[:n_bytes])
+        if n_bytes != Namespace._minimal_bytes(val):
+            return None, None, "not minimal encoding for value"
+        return val, byte_string[n_bytes:], None
 
     @staticmethod
     def pop_tu64(n_bytes, byte_string):
-        assert n_bytes <= 8, "cannot pop more than 8 bytes for a tu64"
+        if n_bytes > 8:
+            return None, None, "cannot pop more than 8 bytes for a tu64"
         if len(byte_string) < n_bytes:
             return None, None, "underrun while popping tu62"
         if n_bytes == 0:
             return 0, byte_string, None
-        return b2i(byte_string[:n_bytes]), byte_string[n_bytes:], None
+        val = b2i(byte_string[:n_bytes])
+        if n_bytes != Namespace._minimal_bytes(val):
+            return None, None, "not minimal encoding for value"
+        return val, byte_string[n_bytes:], None
 
     ###########################################################################
 
@@ -111,7 +144,10 @@ class Namespace:
     def pop_point(byte_string):
         if not len(byte_string) >= 33:
             return None, None, "underrun wihle popping point"
-        return b2h(byte_string[:33]), byte_string[33:], None
+        point = b2h(byte_string[:33])
+        if not point.startswith("02") and not point.startswith("03"):
+            return None, None, "not valid compressed point"
+        return point, byte_string[33:], None
 
     @staticmethod
     def pop_short_channel_id(byte_string):
@@ -127,8 +163,11 @@ class Namespace:
 
     def parse_tlv(self, tlv):
         if tlv.t not in self.tlv_parsers:
+            return {"tlv_type_name": "unknown",
+                    "type":          tlv.t,
+                    "value":         b2h(tlv.v)}, None
             return False, "TLV type has no defined parser function"
-        parsed_tlv, err = self.tlv_parsers[tlv.t]](tlv)
+        parsed_tlv, err = self.tlv_parsers[tlv.t](tlv)
         if err:
             return False, err
         assert 'tlv_type_name' in parsed_tlv, ("subclass parser must name the "
@@ -144,13 +183,42 @@ class Namespace:
             parsed_tlvs.append(parsed_tlv)
         return parsed_tlvs, None
 
+    def _has_unknown_even_types(self, tlvs):
+        present = set(tlv.t for tlv in tlvs)
+        known = set(self.tlv_parsers.keys())
+        unknown = present.difference(known)
+        for t in list(unknown):
+            if t % 2 == 0:
+                return True
+        return False
+
+    def _ordered_ascending(self, tlvs):
+        if len(tlvs) == 0:
+            return True
+        if len(tlvs) == 1:
+            return True
+        max_type = tlvs[0].t
+        for tlv in tlvs[1:]:
+            if tlv.t <= max_type:
+                return False
+            max_type = tlv.t
+        return True
+
+    def _has_duplicates(self, tlvs):
+        types = [tlv.t for tlv in tlvs]
+        dedupe = set(tlv.t for tlv in tlvs)
+        return len(types) != len(dedupe)
+
     def parse(self, byte_string):
         if not Namespace.tlvs_are_valid(byte_string):
             return None, "tlvs are not valid"
         tlvs = list(Namespace.iter_tlvs(byte_string))
-        types = set(tlv.t for tlv in tlvs)
-        if not types.issubset(set(self.tlv_persers.keys()))
-            return None, "got unknown tlv types for Namespace"
+        if self._has_unknown_even_types(tlvs):
+            return None, "got unknown even type tlv for Namespace"
+        if self._has_duplicates(tlvs):
+            return None, "duplicate TLVs in stream"
+        if not self._ordered_ascending(tlvs):
+            return None, "tlvs values not ascending"
         parsed_tlvs, err = self.parse_tlvs(tlvs)
         if err:
             return None, err

@@ -4,7 +4,6 @@ from tlv import Tlv
 
 
 # from: https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#tlv-decoding-successes
-
 TLV_VALID_TESTS = [
      {'stream': "2100",
       't':      0x21,
@@ -40,7 +39,6 @@ TLV_VALID_TESTS = [
 
 
 # from: https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#tlv-decoding-failures
-
 TLV_INVALID_TESTS = [
      {'stream': ""}, # empty byte stream is counted as invalid by this lib
      {'stream': "fd"},

@@ -21,3 +21,11 @@ def i2b(value, n_bytes):
 def b2i(byte_string):
     """ big endian byte array to integer value """
     return int.from_bytes(byte_string, byteorder="big", signed=False)
+
+def h2i(hex_string):
+    """ big endian hex string to hex value """
+    return b2i(h2b(hex_string))
+
+def i2h(value, n_bytes):
+    """ integer to big endian hex string"""
+    return b2h(i2b(value, n_bytes))
