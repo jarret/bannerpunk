@@ -1,4 +1,4 @@
-from util import b2i, b2h, h2i, i2h, i2b
+from util import b2i, b2h, h2i, h2b, i2h, i2b
 from tlv import Tlv
 
 class Namespace:
@@ -33,7 +33,7 @@ class Namespace:
         return h2b(hex_string)
 
     @staticmethod
-    def pop_bytes(byte_string, n_bytes):
+    def pop_bytes(n_bytes, byte_string):
         if len(byte_string) < n_bytes:
             return None, None, "underrun while popping bytes"
         return b2h(byte_string[:n_bytes]), byte_string[n_bytes:], None
@@ -230,43 +230,47 @@ class Namespace:
     ###########################################################################
 
     @staticmethod
-    def encode_tlv(self, t, v):
+    def encode_tlv(t, v):
         return Tlv(t, v).encode()
 
     ###########################################################################
 
-    def parse_tlv(self, tlv):
-        if tlv.t not in self.tlv_parsers:
+    @staticmethod
+    def parse_tlv(tlv, tlv_parsers):
+        if tlv.t not in tlv_parsers:
             return {"tlv_type_name": "unknown",
                     "type":          tlv.t,
                     "value":         b2h(tlv.v)}, None
             return False, "TLV type has no defined parser function"
-        parsed_tlv, err = self.tlv_parsers[tlv.t](tlv)
+        parsed_tlv, err = tlv_parsers[tlv.t](tlv)
         if err:
             return False, err
         assert 'tlv_type_name' in parsed_tlv, ("subclass parser must name the "
                                                "parsed tlv type")
         return parsed_tlv, None
 
-    def parse_tlvs(self, tlvs):
-        parsed_tlvs = []
+    @staticmethod
+    def parse_tlvs(tlvs, tlv_parsers):
+        parsed_tlvs = {}
         for tlv in tlvs:
-            parsed_tlv, err = self.parse_tlv(tlv)
+            parsed_tlv, err = Namespace.parse_tlv(tlv, tlv_parsers)
             if err:
                 return None, err
-            parsed_tlvs.append(parsed_tlv)
+            parsed_tlvs[tlv.t] = parsed_tlv
         return parsed_tlvs, None
 
-    def _has_unknown_even_types(self, tlvs):
+    @staticmethod
+    def _has_unknown_even_types(tlvs, tlv_parsers):
         present = set(tlv.t for tlv in tlvs)
-        known = set(self.tlv_parsers.keys())
+        known = set(tlv_parsers.keys())
         unknown = present.difference(known)
         for t in list(unknown):
             if t % 2 == 0:
                 return True
         return False
 
-    def _ordered_ascending(self, tlvs):
+    @staticmethod
+    def _ordered_ascending(tlvs):
         if len(tlvs) == 0:
             return True
         if len(tlvs) == 1:
@@ -278,28 +282,25 @@ class Namespace:
             max_type = tlv.t
         return True
 
-    def _has_duplicates(self, tlvs):
+    @staticmethod
+    def _has_duplicates(tlvs):
         types = [tlv.t for tlv in tlvs]
         dedupe = set(tlv.t for tlv in tlvs)
         return len(types) != len(dedupe)
 
-    def parse(self, byte_string):
+    @staticmethod
+    def parse(byte_string, tlv_parsers):
         if not Namespace.tlvs_are_valid(byte_string):
             return None, "tlvs are not valid"
         tlvs = list(Namespace.iter_tlvs(byte_string))
-        if self._has_unknown_even_types(tlvs):
+        if Namespace._has_unknown_even_types(tlvs, tlv_parsers):
             return None, "got unknown even type tlv for Namespace"
-        if self._has_duplicates(tlvs):
+        if Namespace._has_duplicates(tlvs):
             return None, "duplicate TLVs in stream"
-        if not self._ordered_ascending(tlvs):
+        if not Namespace._ordered_ascending(tlvs):
             return None, "tlvs values not ascending"
-        parsed_tlvs, err = self.parse_tlvs(tlvs)
+        parsed_tlvs, err = Namespace.parse_tlvs(tlvs, tlv_parsers)
         if err:
             return None, err
         return parsed_tlvs, None
 
-    ###########################################################################
-
-    def encode(self):
-        return b''.join([Tlv(t, encode_func()).encode() for t, encode_func in
-                         self.tlv_encoders.items()])

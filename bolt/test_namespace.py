@@ -5,13 +5,7 @@ from namespace import Namespace
 # test namespaces as defined by:
 # https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#appendix-b-type-length-value-test-vectors
 
-class TestNamespace1(Namespace):
-    def __init__(self):
-        self.tlv_parsers = {1:   self.parse_tlv1,
-                            2:   self.parse_tlv2,
-                            3:   self.parse_tlv3,
-                            254: self.parse_tlv4}
-
+class TestNamespace1:
     def parse_tlv1(self, tlv):
         print("parsing tlv1: %s" % tlv)
         amount_msat, remainder, err = Namespace.pop_tu64(tlv.l, tlv.v)
@@ -60,12 +54,15 @@ class TestNamespace1(Namespace):
         return {'tlv_type_name': "tlv4",
                 'cltv_delta':    cltv_delta}, None
 
+    def parse(self, byte_string):
+        tlv_parsers = {1:   self.parse_tlv1,
+                       2:   self.parse_tlv2,
+                       3:   self.parse_tlv3,
+                       254: self.parse_tlv4}
+        return Namespace.parse(byte_string, tlv_parsers)
 
-class TestNamespace2(Namespace):
-    def __init__(self):
-        self.tlv_parsers = {0:  self.parse_tlv1,
-                            11: self.parse_tlv2}
 
+class TestNamespace2:
     def parse_tlv1(self, tlv):
         amount_msat, remainder, err = Namespace.pop_tu64(tlv.l, tlv.v)
         if err:
@@ -83,6 +80,11 @@ class TestNamespace2(Namespace):
             return None, "unexpected remaining bytes"
         return {'tlv_type_name': "tlv2",
                 'cltv_expiry':   cltv_expiry}, None
+
+    def parse(self, byte_string):
+        tlv_parsers = {0:  self.parse_tlv1,
+                       11: self.parse_tlv2}
+        return Namespace.parse(byte_string, tlv_parsers)
 
 
 
@@ -133,37 +135,38 @@ TEST_BOTH_NAMESPACES_VALID_IGNORED = [
 # from: https://github.com/lightningnetwork/lightning-rfc/blob/4c3d01616d8e7c1c39212f97562964eceb769c08/01-messaging.md#tlv-decoding-successes
 TEST_NAMESPACE1_VALID = [
     {'stream':   "0100",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 0}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 0}},
     },
     {'stream':   "010101",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 1}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 1}},
     },
     {'stream':   "01020100",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 256}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 256}},
     },
     {'stream':   "0103010000",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 65536}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 65536}},
     },
     {'stream':   "010401000000",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 16777216}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 16777216}},
     },
     {'stream':   "0106010000000000",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 1099511627776}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 1099511627776}},
     },
     {'stream':   "010701000000000000",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 281474976710656}],
+     'expected': {1: {'tlv_type_name': 'tlv1', "amount_msat": 281474976710656}},
     },
     {'stream':   "01080100000000000000",
-     'expected': [{'tlv_type_name': 'tlv1', "amount_msat": 72057594037927936}],
+     'expected': {1: {'tlv_type_name': 'tlv1',
+                      "amount_msat": 72057594037927936}},
     },
     {'stream':   "0331023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb00000000000000010000000000000002",
-     'expected': [{'tlv_type_name': 'tlv3',
-                   "node_id":        "023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb",
-                   "amount_msat_1":  1,
-                   "amount_msat_2":  2}]
+     'expected': {3: {'tlv_type_name': 'tlv3',
+                      "node_id":        "023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb",
+                      "amount_msat_1":  1,
+                      "amount_msat_2":  2}}
     },
     {'stream':   "fd00fe020226",
-     'expected': [{'tlv_type_name': 'tlv4', "cltv_delta": 550}],
+     'expected': {254: {'tlv_type_name': 'tlv4', "cltv_delta": 550}},
     },
 ]
 
@@ -215,13 +218,13 @@ if __name__ == "__main__":
         parsed, err = n1.parse(test_bytes)
         print("parsed: %s err: %s" % (parsed, err))
         assert err is None, "expected no err"
-        parsed_type_names = set(p['tlv_type_name'] for p in parsed)
+        parsed_type_names = set(p['tlv_type_name'] for p in parsed.values())
         assert parsed_type_names.issubset({"unknown"}), "got non-unknown tlv"
         n2 = TestNamespace2()
         parsed, err = n2.parse(test_bytes)
         print("parsed: %s err: %s" % (parsed, err))
         assert err is None, "expected no err"
-        parsed_type_names = set(p['tlv_type_name'] for p in parsed)
+        parsed_type_names = set(p['tlv_type_name'] for p in parsed.values())
         assert parsed_type_names.issubset({"unknown"}), "got non-unknown tlv"
     print("done testing both namespaces valid ignored")
 

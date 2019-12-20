@@ -18,11 +18,11 @@ class Onion:
         if err:
             return None, "could not pop public key: %s" % err
 
-        hop_payloads, remainder, err = Namespace.pop_bytes(remainder,
-                                                           HOP_PAYLOADS_LENGTH)
+        hop_payloads, remainder, err = Namespace.pop_bytes(HOP_PAYLOADS_LENGTH,
+                                                           remainder)
         if err:
             return None, "could not pop hops_payloads: %s" % err
-        hmac, remainder, err =  Namespace.pop_bytes(remainder, HMAC_LENGTH)
+        hmac, remainder, err =  Namespace.pop_bytes(HMAC_LENGTH, remainder)
         if err:
             return None, "could not pop hmac: %s" % err
         if len(remainder) != 0:

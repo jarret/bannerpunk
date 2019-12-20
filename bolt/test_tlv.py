@@ -58,20 +58,16 @@ if __name__ == "__main__":
         peek_tlv, peek_err = Tlv.peek(h2b(test['stream']))
         pop_tlv, remainder, pop_err = Tlv.pop(h2b(test['stream']))
 
-        #print(test)
 
-        #print("peek_tlv: %s peek_err: %s" % (peek_tlv, peek_err))
         assert peek_err is None
-        assert peek_tlv['t'] == test['t']
-        assert peek_tlv['l'] == test['l']
-        #print("peek_tlv: %s  test: %s" % (peek_tlv['v'], h2b(test['v'])))
-        assert peek_tlv['v'] == h2b(test['v'])
+        assert peek_tlv.t == test['t']
+        assert peek_tlv.l == test['l']
+        assert peek_tlv.v == h2b(test['v'])
 
-        #print("pop_tlv: %s pop_err: %s" % (pop_tlv, pop_err))
         assert pop_err is None
-        assert pop_tlv['t'] == test['t']
-        assert pop_tlv['l'] == test['l']
-        assert pop_tlv['v'] == h2b(test['v'])
+        assert pop_tlv.t == test['t']
+        assert pop_tlv.l == test['l']
+        assert pop_tlv.v == h2b(test['v'])
         assert remainder == h2b(test['r'])
 
     print("done testing valid cases")
