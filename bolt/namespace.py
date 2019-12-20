@@ -1,4 +1,4 @@
-from util import b2i, b2h, h2i, i2h
+from util import b2i, b2h, h2i, i2h, i2b
 from tlv import Tlv
 
 class Namespace:
@@ -29,6 +29,18 @@ class Namespace:
     ###########################################################################
 
     @staticmethod
+    def encode_bytes(hex_string):
+        return h2b(hex_string)
+
+    @staticmethod
+    def pop_bytes(byte_string, n_bytes):
+        if len(byte_string) < n_bytes:
+            return None, None, "underrun while popping bytes"
+        return b2h(byte_string[:n_bytes]), byte_string[n_bytes:], None
+
+    ###########################################################################
+
+    @staticmethod
     def pop_u8(byte_string):
         if len(byte_string) < 1:
             return None, None, "underrun while popping a u8"
@@ -54,7 +66,25 @@ class Namespace:
 
     ###########################################################################
 
-    def _minimal_bytes(int_value):
+    @staticmethod
+    def encode_u8(value):
+        return i2b(value, 1)
+
+    @staticmethod
+    def encode_u16(value):
+        return i2b(value, 2)
+
+    @staticmethod
+    def encode_u32(value):
+        return i2b(value, 4)
+
+    @staticmethod
+    def encode_u64(value):
+        return i2b(value, 8)
+
+    ###########################################################################
+
+    def minimal_tu_bytes(int_value):
         assert int_value <= 0xffffffffffffffff, "value too big for encoding"
         if int_value == 0:
             return 0
@@ -84,7 +114,7 @@ class Namespace:
         if n_bytes == 0:
             return 0, byte_string, None
         val = b2i(byte_string[:n_bytes])
-        if n_bytes != Namespace._minimal_bytes(val):
+        if n_bytes != Namespace.minimal_tu_bytes(val):
             return None, None, "not minimal encoding for value"
         return val, byte_string[n_bytes:], None
 
@@ -97,7 +127,7 @@ class Namespace:
         if n_bytes == 0:
             return 0, byte_string, None
         val = b2i(byte_string[:n_bytes])
-        if n_bytes != Namespace._minimal_bytes(val):
+        if n_bytes != Namespace.minimal_tu_bytes(val):
             return None, None, "not minimal encoding for value"
         return val, byte_string[n_bytes:], None
 
@@ -110,9 +140,33 @@ class Namespace:
         if n_bytes == 0:
             return 0, byte_string, None
         val = b2i(byte_string[:n_bytes])
-        if n_bytes != Namespace._minimal_bytes(val):
+        if n_bytes != Namespace.minimal_tu_bytes(val):
             return None, None, "not minimal encoding for value"
         return val, byte_string[n_bytes:], None
+
+    ###########################################################################
+
+    @staticmethod
+    def encode_tu(value):
+        n_bytes = Namespace.minimal_tu_bytes(value)
+        if n_bytes == 0:
+            return b''
+        return i2b(value, n_bytes)
+
+    @staticmethod
+    def encode_tu16(value):
+        assert value <= 0xffff, "value too big for tu16"
+        return Namespace.encode_tu(value)
+
+    @staticmethod
+    def encode_tu32(value):
+        assert value <= 0xffffffff, "value too big for tu32"
+        return Namespace.encode_tu(value)
+
+    @staticmethod
+    def encode_tu64(value):
+        assert value <= 0xffffffffffffffff, "value too big for tu64"
+        return Namespace.encode_tu(value)
 
     ###########################################################################
 
@@ -158,6 +212,26 @@ class Namespace:
         output_index = b2i(byte_string[6:8])
         formatted = "%dx%dx%d" % (block_height, tx_index, output_index)
         return formatted, byte_string[8:], None
+
+    ###########################################################################
+
+    @staticmethod
+    def encode_short_channel_id(short_channel_id):
+        values = short_channel_id.split("x")
+        assert len(values) == 3, "not a short_channel_id string"
+        try:
+            block_height = int(values[0])
+            tx_index = int(values[1])
+            output_index = int(values[2])
+        except:
+            assert False, "not a short_channel_id string"
+        return i2b(block_height, 3) + i2b(tx_index, 3) + i2b(output_index, 2)
+
+    ###########################################################################
+
+    @staticmethod
+    def encode_tlv(self, t, v):
+        return Tlv(t, v).encode()
 
     ###########################################################################
 
@@ -223,3 +297,9 @@ class Namespace:
         if err:
             return None, err
         return parsed_tlvs, None
+
+    ###########################################################################
+
+    def encode(self):
+        return b''.join([Tlv(t, encode_func()).encode() for t, encode_func in
+                         self.tlv_encoders.items()])
