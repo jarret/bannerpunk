@@ -1,6 +1,13 @@
+#!/usr/bin/env python3
+import os
+import sys
+import random
 import json
-from util import h2b
-from namespace import Namespace
+
+sys.path.insert(1, os.path.realpath(os.path.pardir))
+
+from bolt.util import h2b
+from bolt.namespace import Namespace
 
 # test namespaces as defined by:
 # https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#appendix-b-type-length-value-test-vectors

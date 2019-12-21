@@ -1,6 +1,12 @@
-from util import h2b
-from bigsize import BigSize
-from tlv import Tlv
+#!/usr/bin/env python3
+import os
+import sys
+
+sys.path.insert(1, os.path.realpath(os.path.pardir))
+
+from bolt.util import h2b
+from bolt.bigsize import BigSize
+from bolt.tlv import Tlv
 
 
 # from: https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#tlv-decoding-successes

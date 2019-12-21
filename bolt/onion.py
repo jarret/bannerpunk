@@ -1,4 +1,4 @@
-from namespace import Namespace
+from bolt.namespace import Namespace
 
 ONION_BYTE_LENGTH = 1366
 HOP_PAYLOADS_LENGTH = 1300

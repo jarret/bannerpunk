@@ -1,5 +1,5 @@
-from util import b2h
-from bigsize import BigSize
+from bolt.util import b2h
+from bolt.bigsize import BigSize
 
 class Tlv:
     """

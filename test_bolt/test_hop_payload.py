@@ -1,7 +1,13 @@
+#!/usr/bin/env python3
+import os
+import sys
+import random
 import json
 
-from util import h2b
-from hop_payload import HopPayload, TlvHopPayload
+sys.path.insert(1, os.path.realpath(os.path.pardir))
+
+from bolt.util import h2b
+from bolt.hop_payload import HopPayload, TlvHopPayload
 
 TEST_LEGACY_PAYLOADS = [
     {'stream': "00000067000001000100000000000003e90000007b000000000000000000000000",

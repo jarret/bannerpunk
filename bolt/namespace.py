@@ -1,5 +1,5 @@
-from util import b2i, b2h, h2i, h2b, i2h, i2b
-from tlv import Tlv
+from bolt.util import b2i, b2h, h2i, h2b, i2h, i2b
+from bolt.tlv import Tlv
 
 class Namespace:
     """

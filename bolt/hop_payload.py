@@ -1,6 +1,6 @@
-from bigsize import BigSize
-from tlv import Tlv
-from namespace import Namespace
+from bolt.bigsize import BigSize
+from bolt.tlv import Tlv
+from bolt.namespace import Namespace
 
 ###############################################################################
 

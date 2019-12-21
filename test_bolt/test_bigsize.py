@@ -1,6 +1,11 @@
+#!/usr/bin/env python3
+import os
+import sys
 import random
 
-from bigsize import BigSize, h2b
+sys.path.insert(1, os.path.realpath(os.path.pardir))
+
+from bolt.bigsize import BigSize, h2b
 
 
 # From: https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#bigsize-decoding-tests

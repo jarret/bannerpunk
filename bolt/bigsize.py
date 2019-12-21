@@ -1,4 +1,4 @@
-from util import h2b, i2b, b2i
+from bolt.util import h2b, i2b, b2i
 
 class BigSize:
     """

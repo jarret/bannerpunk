@@ -1,5 +1,12 @@
-from util import h2b
-from onion import Onion
+#!/usr/bin/env python3
+import os
+import sys
+import random
+
+sys.path.insert(1, os.path.realpath(os.path.pardir))
+
+from bolt.util import h2b
+from bolt.onion import Onion
 
 
 # via:  $ ./onion generate 02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7 0331f80652fb840239df8dc99205792bba2e559a05469915804c08420230e23c7c
