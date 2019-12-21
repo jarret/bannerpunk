@@ -8,7 +8,8 @@ import pprint
 import argparse
 from lightning import LightningRpc, Millisatoshi
 
-from bannerpunk.pixel_preimage import Pixel, Preimage
+from bannerpunk.pixel import Pixel
+from bannerpunk.preimage import Preimage
 from bannerpunk.images import IMAGE_SIZES
 
 BANNERPUNK_NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"

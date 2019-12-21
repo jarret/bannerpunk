@@ -11,7 +11,8 @@ from txzmq import ZmqEndpoint, ZmqEndpointType
 from txzmq import ZmqFactory
 from txzmq import ZmqSubConnection
 
-from bannerpunk.pixel_preimage import Pixel, Preimage
+from bannerpunk.pixel import Pixel
+from bannerpunk.preimage import Preimage
 from bannerpunk.art_db import ArtDb
 from bannerpunk.compressor import compressor
 from bannerpunk.images import IMAGE_SIZES

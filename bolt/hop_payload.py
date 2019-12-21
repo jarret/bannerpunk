@@ -165,11 +165,13 @@ class TlvHopPayload:
     ###########################################################################
 
     @staticmethod
-    def parse(byte_string):
+    def parse(byte_string, extension_parsers=None):
         tlv_parsers = {2: TlvHopPayload.parse_amt_to_forward,
                        4: TlvHopPayload.parse_outgoing_cltv_value,
                        6: TlvHopPayload.parse_short_channel_id,
                        8: TlvHopPayload.parse_payment_data}
+        if extension_parsers:
+            tlv_parsers.update(extension_parsers)
         parsed, err = Namespace.parse(byte_string, tlv_parsers)
         if err:
             print("err 123: %s" % err)
@@ -204,7 +206,7 @@ class TlvHopPayload:
 
 class HopPayload:
     @staticmethod
-    def parse(byte_string):
+    def parse(byte_string, extension_parsers=None):
         length, remainder, err = BigSize.pop(byte_string)
         if err:
             return None, err
@@ -214,4 +216,13 @@ class HopPayload:
             return LegacyHopPayload.parse(remainder)
         if len(remainder) != length:
             return None, "remainder length does not match state length"
-        return TlvHopPayload.parse(remainder)
+        return TlvHopPayload.parse(remainder,
+                                   extension_parsers=extension_parsers)
+
+    @staticmethod
+    def check_non_final(parsed):
+        return TlvHopPayload.check_non_final(parsed)
+
+    @staticmethod
+    def check_final(parsed):
+        return TlvHopPayload.check_final(parsed)
