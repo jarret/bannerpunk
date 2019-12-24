@@ -6,12 +6,13 @@ import uuid
 import json
 import pprint
 import argparse
-from lightning import LightningRpc, Millisatoshi
+from pyln.client import LightningRpc, Millisatoshi
 
 from bannerpunk.print import chill_blue_str, chill_green_str, chill_yellow_str
 from bannerpunk.print import chill_purple_str
 from bannerpunk.pixel import Pixel
 from bannerpunk.images import IMAGE_SIZES
+from bannerpunk.hop_payload import BannerPunkHopPayload
 
 from bolt.hop_payload import LegacyHopPayload, TlvHopPayload
 
@@ -30,7 +31,8 @@ CLTV_FINAL = 10
 class OnionDraw(object):
     def __init__(self, lightning_rpc, dst_node, pixels):
         self.dst_node = dst_node
-        self.n_pixels = len(pixels)
+        self.pixels = pixels
+        self.n_pixels = len(self.pixels)
         self.dst_payment = 1000 * self.n_pixels
 
         self.rpc = LightningRpc(lightning_rpc)
@@ -100,14 +102,21 @@ class OnionDraw(object):
     def encode_non_final_payload(self, style, pubkey, channel, msatoshi,
                                  blockheight, delay):
         if style == "legacy":
+            assert pubkey != self.dst_node, "can't send pixels to legacy hop"
             p = LegacyHopPayload.encode(channel, msatoshi, blockheight + delay)
             return {'style':   "legacy",
                     'pubkey':  pubkey,
                     'payload': p.hex()}
 
         else:
-            p = TlvHopPayload.encode_non_final(msatoshi, blockheight + delay,
-                                               channel)
+            if pubkey == self.dst_node:
+                p = BannerPunkHopPayload.encode_non_final(msatoshi,
+                                                          blockheight + delay,
+                                                          channel, self.pixels)
+            else:
+                p = TlvHopPayload.encode_non_final(msatoshi,
+                                                   blockheight + delay,
+                                                   channel)
             return {'style':   "tlv",
                     'pubkey':  pubkey,
                     'payload': p.hex()}
@@ -115,6 +124,7 @@ class OnionDraw(object):
     def encode_final_payload(self, style, pubkey, channel, msatoshi,
                              blockheight, delay, payment_secret):
         if style == "legacy":
+            assert pubkey != self.dst_node, "can't send pixels to legacy hop"
             p = LegacyHopPayload.encode(channel, msatoshi, blockheight + delay)
             return {'style':   "legacy",
                     'pubkey':  pubkey,
@@ -236,7 +246,7 @@ def manual_func(settings):
         pixels.append(p)
 
 
-    bp = OnionDraw(settings.lightning_rpc, JUKEBOX_NODE, pixels)
+    bp = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, pixels)
     err = bp.run()
     if err:
         sys.exit("something went wrong: %s" % err)
