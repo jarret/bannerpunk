@@ -12,7 +12,7 @@ class LegacyHopPayload:
     @staticmethod
     def encode(short_channel_id, amt_to_forward, outgoing_cltv_value):
         encoded_version = Namespace.encode_u8(0)
-        encoded_scid = Namespace.encode_sort_channel_id(short_channel_id)
+        encoded_scid = Namespace.encode_short_channel_id(short_channel_id)
         encoded_amt = Namespace.encode_u64(amt_to_forward)
         encoded_outgoing = Namespace.encode_u32(outgoing_cltv_value)
         padding = 12 * Namespace.encode_u8(0)

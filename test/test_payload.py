@@ -13,6 +13,12 @@ from bannerpunk.pixel import Pixel
 from bannerpunk.hop_payload import BannerPunkHopPayload
 
 
+TEST_PAYLOAD = [
+    {'stream': "1f020203e804012c06080000000000010002fdad9d0a0000ffffff0101eeeeee",
+
+    },
+]
+
 def json_cmp(obj1, obj2):
     # slow, lame, but it works. Take the afternoon off.
     return json.dumps(obj1, sort_keys=True) == json.dumps(obj1, sort_keys=True)
