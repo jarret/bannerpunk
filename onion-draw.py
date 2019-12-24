@@ -13,7 +13,7 @@ from bannerpunk.print import chill_purple_str
 from bannerpunk.pixel import Pixel
 from bannerpunk.images import IMAGE_SIZES
 
-from bolt.hop_payload import LegacyHopPayload
+from bolt.hop_payload import LegacyHopPayload, TlvHopPayload
 
 BANNERPUNK_NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"
 
@@ -97,27 +97,51 @@ class OnionDraw(object):
         self.rework_routing_fees(route, self.dst_node, self.dst_payment)
         return route
 
-    def iter_hops(self, circular, blockheight):
+    def encode_non_final_payload(self, style, pubkey, channel, msatoshi,
+                                 blockheight, delay):
+        if style == "legacy":
+            p = LegacyHopPayload.encode(channel, msatoshi, blockheight + delay)
+            return {'style':   "legacy",
+                    'pubkey':  pubkey,
+                    'payload': p.hex()}
+
+        else:
+            p = TlvHopPayload.encode_non_final(msatoshi, blockheight + delay,
+                                               channel)
+            return {'style':   "tlv",
+                    'pubkey':  pubkey,
+                    'payload': p.hex()}
+
+    def encode_final_payload(self, style, pubkey, channel, msatoshi,
+                             blockheight, delay, payment_secret):
+        if style == "legacy":
+            p = LegacyHopPayload.encode(channel, msatoshi, blockheight + delay)
+            return {'style':   "legacy",
+                    'pubkey':  pubkey,
+                    'payload': p.hex()}
+
+        else:
+            p = TlvHopPayload.encode_final(msatoshi, blockheight + delay,
+                                           payment_secret=payment_secret,
+                                           total_msat=msatoshi)
+            return {'style':   "tlv",
+                    'pubkey':  pubkey,
+                    'payload': p.hex()}
+
+    def iter_hops(self, circular, blockheight, payment_secret):
         for i in range(len(circular) - 1):
             src = circular[i]
             dst = circular[i + 1]
-            print("encoding: %s: %s %s %s" % (src['id'], dst['channel'],
-                                              dst['msatoshi'], dst['delay']))
-            p = LegacyHopPayload.encode(dst['channel'], dst['msatoshi'],
-                                        blockheight + dst['delay']).hex()
-            yield {'style':   "legacy",
-                   'pubkey':  src['id'],
-                   'payload': p}
-
+            yield self.encode_non_final_payload(src['style'], src['id'],
+                                                dst['channel'], dst['msatoshi'],
+                                                blockheight, dst['delay'])
         dst = circular[-1]
-        p = LegacyHopPayload.encode(dst['channel'], dst['msatoshi'],
-                                    blockheight + dst['delay']).hex()
-        yield {'style':   "legacy",
-               'pubkey':  dst['id'],
-               'payload': p}
+        yield self.encode_final_payload(dst['style'], dst['id'], dst['channel'],
+                                        dst['msatoshi'], blockheight,
+                                        dst['delay'], payment_secret)
 
-    def assemble_hops(self, circular, blockheight):
-        return list(self.iter_hops(circular, blockheight))
+    def assemble_hops(self, circular, blockheight, payment_secret):
+        return list(self.iter_hops(circular, blockheight, payment_secret))
 
     def create_onion(self, hops, assocdata):
         result = self.rpc.createonion(hops, assocdata)
@@ -131,8 +155,6 @@ class OnionDraw(object):
         result = self.rpc.sendonion(onion, first_hop, payment_hash, label,
                                     shared_secrets)
         return result
-        #return None
-
 
     def send_pay_on_route(self, route, payment_hash, bolt11):
         self.print_dict(route)
@@ -172,7 +194,7 @@ class OnionDraw(object):
         print("circular:")
         self.print_dict(circular)
 
-        hops = self.assemble_hops(circular, blockheight)
+        hops = self.assemble_hops(circular, blockheight, payment_secret)
         print("hops:")
         self.print_dict(hops)
 
