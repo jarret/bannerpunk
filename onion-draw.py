@@ -131,9 +131,15 @@ class OnionDraw(object):
                     'payload': p.hex()}
 
         else:
-            p = TlvHopPayload.encode_final(msatoshi, blockheight + delay,
-                                           payment_secret=payment_secret,
-                                           total_msat=msatoshi)
+            if pubkey == self.dst_node:
+                p = BannerPunkHopPayload.encode_final(msatoshi,
+                                                      blockheight + delay,
+                                                      channel, payment_secret,
+                                                      msatoshi, self.pixels)
+            else:
+                p = TlvHopPayload.encode_final(msatoshi, blockheight + delay,
+                                               payment_secret=payment_secret,
+                                               total_msat=msatoshi)
             return {'style':   "tlv",
                     'pubkey':  pubkey,
                     'payload': p.hex()}
