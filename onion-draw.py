@@ -31,8 +31,9 @@ SELF_PAYMENT = 1000 # in millisatoshis
 CLTV_FINAL = 10
 
 class OnionDraw(object):
-    def __init__(self, lightning_rpc, dst_node, pixels):
+    def __init__(self, lightning_rpc, dst_node, art_no, pixels):
         self.dst_node = dst_node
+        self.art_no = art_no
         self.pixels = pixels
         self.n_pixels = len(self.pixels)
         self.dst_payment = 1000 * self.n_pixels
@@ -114,7 +115,8 @@ class OnionDraw(object):
             if pubkey == self.dst_node:
                 p = BannerPunkHopPayload.encode_non_final(msatoshi,
                                                           blockheight + delay,
-                                                          channel, self.pixels)
+                                                          channel, self.art_no,
+                                                          self.pixels)
             else:
                 p = TlvHopPayload.encode_non_final(msatoshi,
                                                    blockheight + delay,
@@ -137,7 +139,8 @@ class OnionDraw(object):
                 p = BannerPunkHopPayload.encode_final(msatoshi,
                                                       blockheight + delay,
                                                       channel, payment_secret,
-                                                      msatoshi, self.pixels)
+                                                      msatoshi, self.art_no,
+                                                      self.pixels)
             else:
                 p = TlvHopPayload.encode_final(msatoshi, blockheight + delay,
                                                payment_secret=payment_secret,
@@ -254,7 +257,8 @@ def manual_func(settings):
         pixels.append(p)
 
 
-    bp = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, pixels)
+    bp = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, settings.image_no,
+                   pixels)
     err = bp.run()
     if err:
         sys.exit("something went wrong: %s" % err)
