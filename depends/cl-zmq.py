@@ -30,13 +30,40 @@
 
 import time
 import json
+import functools
 
 from twisted.internet import reactor
 from txzmq import ZmqEndpoint, ZmqEndpointType
 from txzmq import ZmqFactory
 from txzmq import ZmqPubConnection
 
-from lightning import Plugin
+from pyln.client import Plugin
+
+###############################################################################
+
+HOOK_NAMES_NOOP_RETURN = {'peer_connected':  {'result': "continue"},
+                          #'db_write':        True,
+                          #'invoice_payment': {}, # ugh, name collision
+                          'openchannel':     {"result": "continue"},
+                          'htlc_accepted':   {"result": "continue"},
+                          'rpc_command':     {"continue": True}}
+
+class HookType():
+    def __init__(self, hook_type_name, noop_return):
+        self.hook_type_name = hook_type_name
+        self.noop_return = noop_return
+
+    def __str__(self):
+        return self.hook_type_name
+
+    def endpoint_option(self):
+        return "zmq-pub-{}".format(str(self).replace("_", "-"))
+
+    def hwm_option(self):
+        return "zmq-pub-{}-hwm".format(str(self).replace("_", "-"))
+
+
+HOOK_TYPES = [HookType(n, r) for n, r in HOOK_NAMES_NOOP_RETURN.items()]
 
 ###############################################################################
 
@@ -69,6 +96,10 @@ NOTIFICATION_TYPES = [NotificationType(n) for n in NOTIFICATION_TYPE_NAMES]
 
 ###############################################################################
 
+ALL_TYPES = NOTIFICATION_TYPES + HOOK_TYPES
+
+###############################################################################
+
 class Publisher():
     """ Holds the connection state and accepts incoming notifications that
         come from the subscription. If there is an associated publishing
@@ -94,6 +125,14 @@ class Publisher():
         connection = self.connection_map[notification_type_name]
         connection.publish(message, tag=tag)
 
+    def publish_hook(self, hook_type_name, *args, **kwargs):
+        if hook_type_name not in self.connection_map:
+            return
+        tag = hook_type_name.encode("utf8")
+        message = json.dumps(kwargs).encode("utf8")
+        connection = self.connection_map[hook_type_name]
+        connection.publish(message, tag=tag)
+
 publisher = Publisher()
 
 ###############################################################################
@@ -109,7 +148,7 @@ class Setup():
         return n_bindings > 0
 
     def _iter_endpoints_not_ok(options):
-        for nt in NOTIFICATION_TYPES:
+        for t in ALL_TYPES:
             endpoint_opt = nt.endpoint_option()
             endpoint = options[endpoint_opt]
             if endpoint != "null":
@@ -129,22 +168,22 @@ class Setup():
     ###########################################################################
 
     def _iter_endpoint_setup(options):
-        for nt in NOTIFICATION_TYPES:
-            endpoint_opt = nt.endpoint_option()
+        for t in ALL_TYPES:
+            endpoint_opt = t.endpoint_option()
             if options[endpoint_opt] == "null":
                 continue
             endpoint = options[endpoint_opt]
-            hwm_opt = nt.hwm_option()
+            hwm_opt = t.hwm_option()
             hwm = int(options[hwm_opt])
-            yield endpoint, nt, hwm
+            yield endpoint, t, hwm
 
     def get_setup_dict(options):
         setup = {}
-        for e, nt, hwm in Setup._iter_endpoint_setup(options):
+        for e, t, hwm in Setup._iter_endpoint_setup(options):
             if e not in setup:
                 setup[e] = {'notification_type_names': [],
                             'high_water_mark':         hwm}
-            setup[e]['notification_type_names'].append(str(nt))
+            setup[e]['notification_type_names'].append(str(t))
             # use the lowest high water mark given for the endpoint
             setup[e]['high_water_mark'] = min(
                 setup[e]['high_water_mark'], hwm)
@@ -171,29 +210,42 @@ def init(options, configuration, plugin, **kwargs):
     Setup.log_setup_dict(setup_dict, plugin)
     reactor.callFromThread(publisher.load_setup, setup_dict)
 
-SUBSCRIBE_TEMPLATE = """
-@plugin.subscribe("{}")
-def on_{}(plugin, *args, **kwargs):
+def on_hook(hook_type_name, plugin, *args, **kwargs):
     if len(args) != 0:
         plugin.log("got unexpected args: {}".format(args), level="warn")
-    reactor.callFromThread(publisher.publish_notification, "{}",
-                           *args, **kwargs)
-"""
+    reactor.callFromThread(publisher.publish_hook, hook_type_name, *args,
+                           **kwargs)
+    return HOOK_NAMES_NOOP_RETURN[hook_type_name]
 
-DEFAULT_HIGH_WATER_MARK = 1000
+for ht in HOOK_TYPES:
+    # subscribe to all hooks
+    oh = functools.partial(on_hook, str(ht))
+    oh.__annotations__ = {} # needed to please Plugin._coerce_arguments()
+    plugin.add_hook(str(ht), oh)
+
+def on_notification(notification_type_name, plugin, *args, **kwargs):
+    if len(args) != 0:
+        plugin.log("got unexpected args: {}".format(args), level="warn")
+    reactor.callFromThread(publisher.publish_notification,
+                           notification_type_name, *args, **kwargs)
 
 for nt in NOTIFICATION_TYPES:
     # subscribe to all notifications
-    subscribe = SUBSCRIBE_TEMPLATE.format(nt, nt, nt, nt)
-    exec(subscribe)
+    on = functools.partial(on_notification, str(nt))
+    on.__annotations__ = {} # needed to please Plugin._coerce_arguments()
+    plugin.add_subscription(str(nt), on)
+
+DEFAULT_HIGH_WATER_MARK = 1000
+
+for t in ALL_TYPES:
     # zmq socket binding option
-    endpoint_opt = nt.endpoint_option()
-    endpoint_desc = "Enable publish {} info to ZMQ socket endpoint".format(nt)
+    endpoint_opt = t.endpoint_option()
+    endpoint_desc = "Enable publish {} info to ZMQ socket endpoint".format(t)
     plugin.add_option(endpoint_opt, None, endpoint_desc, opt_type='string')
     # high water mark option
-    hwm_opt = nt.hwm_option()
+    hwm_opt = t.hwm_option()
     hwm_desc = ("Set publish {} info message high water mark "
-                "(default: {})".format(nt, DEFAULT_HIGH_WATER_MARK))
+                "(default: {})".format(t, DEFAULT_HIGH_WATER_MARK))
     plugin.add_option(hwm_opt, DEFAULT_HIGH_WATER_MARK, hwm_desc,
                       opt_type='int')
 
