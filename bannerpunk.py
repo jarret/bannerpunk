@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+import sys
 import json
 import argparse
 
@@ -11,11 +13,16 @@ from txzmq import ZmqEndpoint, ZmqEndpointType
 from txzmq import ZmqFactory
 from txzmq import ZmqSubConnection
 
+from bolt.util import h2b
+
 from bannerpunk.pixel import Pixel
 from bannerpunk.preimage import Preimage
 from bannerpunk.art_db import ArtDb
 from bannerpunk.compressor import compressor
 from bannerpunk.images import IMAGE_SIZES
+from bannerpunk.hop_payload import BannerPunkHopPayload
+from bannerpunk.hop_payload import PIXEL_TLV_TYPE, ART_TLV_TYPE
+
 
 ###############################################################################
 
@@ -68,12 +75,16 @@ class AppServer(WebSocketServerFactory):
 
 ###############################################################################
 
+HTLC_ACCEPTED_TAG = "htlc_accepted".encode("utf8")
+FORWARD_EVENT_TAG = "forward_event".encode("utf8")
+
 class App(object):
     def __init__(self, endpoint, mock_endpoint, port, art_db_dir):
         self.endpoint = endpoint
         self.mock_endpoint = mock_endpoint
         self.port = port
         self.art_db_dir = art_db_dir
+        self.unpaid_htlcs = {}
 
     ###########################################################################
 
@@ -98,26 +109,35 @@ class App(object):
         sub_endpoint = ZmqEndpoint(ZmqEndpointType.connect, self.endpoint)
         sub_connection = ZmqSubConnection(zmq_factory, sub_endpoint)
         sub_connection.gotMessage = self.zmq_message
-        sub_connection.subscribe("forward_event".encode("utf8"))
+        sub_connection.subscribe(FORWARD_EVENT_TAG)
+        sub_connection.subscribe(HTLC_ACCEPTED_TAG)
 
         print("subscribing on: %s" % self.mock_endpoint)
         sub_mock_endpoint = ZmqEndpoint(ZmqEndpointType.connect,
                                         self.mock_endpoint)
         sub_mock_connection = ZmqSubConnection(zmq_factory, sub_mock_endpoint)
         sub_mock_connection.gotMessage = self.zmq_message
-        sub_mock_connection.subscribe("forward_event".encode("utf8"))
+        sub_mock_connection.subscribe(FORWARD_EVENT_TAG)
+        sub_mock_connection.subscribe(HTLC_ACCEPTED_TAG)
 
     def fee_adequate(self, fee, pixel_preimage):
         n_pixels = pixel_preimage.n_pixels
         min_fee = 1000 * n_pixels
         return fee >= min_fee
 
-    def zmq_message(self, message, tag):
+    def forward_event_message(self, message):
         d = json.loads(message.decode('utf8'))['forward_event']
         print("got %s" % json.dumps(d, indent=1))
 
         if d['status'] != 'settled':
             print("invoice is not settled")
+            return
+
+        if d['payment_hash'] in self.unpaid_htlcs.keys():
+            self.finish_htlc(d['payment_hash'])
+            return
+        if 'preimage' not in self.unpaid_htlcs.keys():
+            print("no preimage in settled invoice")
             return
 
         p = Preimage.from_hex(d['preimage'])
@@ -139,8 +159,52 @@ class App(object):
             self.art_db_1.record_new_preimage(p)
         if image_no == 2:
             self.art_db_2.record_new_preimage(p)
-
         self.ws_server.echo_to_clients(image_no, p.pixels)
+
+    def htlc_accepted_message(self, message):
+        d = json.loads(message.decode('utf8'))
+        payment_hash = d['htlc']['payment_hash']
+        amount = int(d['htlc']['amount'][:-4])
+        forward_amount = int(d['onion']['forward_amount'][:-4])
+        payload_hex = d['onion']['payload']
+        payload = h2b(payload_hex)
+        paid = amount - forward_amount
+        parsed_payload, err = BannerPunkHopPayload.parse(payload)
+        if err:
+            print("could not parse payload: %s" % err)
+            return
+        print("parsed payload %s" % parsed_payload)
+        image_no = parsed_payload['tlvs'][ART_TLV_TYPE]['art_no']
+        pixels = parsed_payload['tlvs'][PIXEL_TLV_TYPE]['pixels']
+        if (amount - forward_amount) < len(pixels) * 1000:
+            print("forward fee not enough")
+            return
+
+        self.unpaid_htlcs[payment_hash] = {'payload_hex': payload_hex,
+                                           'recv_time':   time.time()}
+
+    def finish_htlc(self, payment_hash):
+        payload_hex = self.unpaid_htlcs.pop(payment_hash)['payload_hex']
+        payload = h2b(payload_hex)
+        parsed_payload, err = BannerPunkHopPayload.parse(payload)
+        assert err is None, "could not parse the second time?"
+        image_no = parsed_payload['tlvs'][ART_TLV_TYPE]['art_no']
+        pixels = parsed_payload['tlvs'][PIXEL_TLV_TYPE]['pixels']
+        if image_no == 0:
+            self.art_db_0.record_pixels(payload_hex, pixels)
+        if image_no == 1:
+            self.art_db_1.record_pixels(payload_hex, pixels)
+        if image_no == 2:
+            self.art_db_2.record_pixels(payload_hex, pixels)
+        self.ws_server.echo_to_clients(image_no, pixels)
+
+    def zmq_message(self, message, tag):
+        if tag == FORWARD_EVENT_TAG:
+            self.forward_event_message(message)
+        elif tag == HTLC_ACCEPTED_TAG:
+            self.htlc_accepted_message(message)
+        else:
+            sys.exit("unknown tag: %s" % tag)
 
     ###########################################################################
 
@@ -159,7 +223,7 @@ class App(object):
 
 DEFAULT_WEBSOCKET_PORT = 9000
 
-DEFAULT_ZMQ_SUBSCRIBE_ENDPOINT = "tcp://127.0.0.1:5556"
+DEFAULT_ZMQ_SUBSCRIBE_ENDPOINT = "tcp://127.0.0.1:6666"
 DEFAULT_MOCK_ZMQ_SUBSCRIBE_ENDPOINT = "tcp://127.0.0.1:5557"
 
 DEFAULT_ART_DB_DIR = "/tmp/bannerpunk/"

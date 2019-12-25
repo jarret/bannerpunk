@@ -48,7 +48,14 @@ class ArtDb(object):
 
     def log_new_preimage(self, preimage):
         path = self.update_log_path()
-        s = "%0.4f %s\n" % (time.time(), preimage.to_hex())
+        s = "%0.4f preimage %s\n" % (time.time(), preimage.to_hex())
+        f = open(path, "a")
+        f.write(s)
+        f.close()
+
+    def log_payload(self, payload):
+        path = self.update_log_path()
+        s = "%0.4f payload %s\n" % (time.time(), payload)
         f = open(path, "a")
         f.write(s)
         f.close()
@@ -67,6 +74,18 @@ class ArtDb(object):
             assert len(rgb) == PIXEL_RECORD_SIZE
             self.bin[byte:byte + PIXEL_RECORD_SIZE] = rgb
         self.log_new_preimage(preimage)
+        self.bin.flush()
+
+    def record_pixels(self, payload, pixels):
+        for p in pixels:
+            x = p.x
+            y = p.y
+
+            byte = self.map_byte(p.x, p.y)
+            rgb = p.to_bin()[2:]
+            assert len(rgb) == PIXEL_RECORD_SIZE
+            self.bin[byte:byte + PIXEL_RECORD_SIZE] = rgb
+        self.log_payload(payload)
         self.bin.flush()
 
     def to_bin(self):
