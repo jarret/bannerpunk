@@ -5,6 +5,7 @@ import json
 import argparse
 
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 
 from autobahn.twisted.websocket import WebSocketServerProtocol
 from autobahn.twisted.websocket import WebSocketServerFactory
@@ -23,6 +24,9 @@ from bannerpunk.images import IMAGE_SIZES
 from bannerpunk.hop_payload import BannerPunkHopPayload
 from bannerpunk.hop_payload import PIXEL_TLV_TYPE, ART_TLV_TYPE
 
+
+UNPAID_PRUNE_CHECK = 60
+UNPAID_PRUNE_SECONDS = 120
 
 ###############################################################################
 
@@ -85,6 +89,8 @@ class App(object):
         self.port = port
         self.art_db_dir = art_db_dir
         self.unpaid_htlcs = {}
+        self.prune_loop = LoopingCall(self.prune_unpaid)
+        self.prune_loop.start(interval=UNPAID_PRUNE_CHECK, now=False)
 
     ###########################################################################
 
@@ -205,6 +211,15 @@ class App(object):
             self.htlc_accepted_message(message)
         else:
             sys.exit("unknown tag: %s" % tag)
+
+    ###########################################################################
+
+    def prune_unpaid(self):
+        now = time.time()
+        new = {k: v for k, v in self.unpaid_htlcs.items() if
+               (now - v['recv_time']) < UNPAID_PRUNE_SECONDS}
+        #print("pruning: %d to %d" % (len(self.unpaid_htlcs), len(new)))
+        self.unpaid_htlcs = new
 
     ###########################################################################
 
