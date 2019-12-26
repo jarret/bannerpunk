@@ -46,7 +46,7 @@ s = parser.parse_args()
 
 img = Image.open(s.png_file)
 width, height = img.size
-rgb_raw = img.convert("RGB")
+rgb_raw = img.convert("RGBA")
 
 px_data = list(rgb_raw.getdata())
 
@@ -60,10 +60,18 @@ for h in range(height):
         if y > MAX_Y:
             continue
         y = h + s.y_offset
-        rgb = "%02x%02x%02x" % px_data[(h * width) + w]
+        idx = (h * width) + w
+        r = px_data[idx][0]
+        g = px_data[idx][1]
+        b = px_data[idx][2]
+        a = px_data[idx][3]
+        if (a < 200):
+            continue
+        #print("r g b a: %d %d %d %d" % (r,g,b,a))
+        rgb = "%02x%02x%02x" % (r, g, b)
         pixels.append(Pixel(x, y, rgb))
 
-print([str(p) for p in pixels])
+#print([str(p) for p in pixels])
 
 
 def divide_chunks(l, n):
@@ -98,6 +106,8 @@ def publish():
         print("publishing: %s" % msg)
         pub_connection.publish(msg, tag=HTLC_ACCEPTED_TAG)
         time.sleep(0.01)
+        if (random.random() < 0.5):
+            continue
         m = {'forward_event': {'payment_hash': payment_hash,
                                'status':       "settled",
                                'fee':        p['amount'] - p['forward_amount']}}
