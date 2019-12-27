@@ -3,6 +3,7 @@ import hashlib
 import string
 
 from bannerpunk.images import IMAGE_SIZES
+from bannerpunk.pixel import Pixel
 
 class Preimage(object):
     def __init__(self, image_no, pixels):
