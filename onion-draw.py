@@ -372,7 +372,7 @@ def manual_func(settings):
             sys.exit("bad pixel? %s" % pixel)
         pixels.append(p)
 
-    od = OnionDraw(settings.lightning_rpc, BANNANA_NODE, settings.image_no,
+    od = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, settings.image_no,
                    pixels)
     err = od.run()
     if err:
@@ -431,7 +431,7 @@ def png_func(settings):
     #print([str(p) for p in pixels])
 
     print("total pixels: %d" % len(pixels))
-    od = OnionDraw(settings.lightning_rpc, BANNANA_NODE, settings.image_no,
+    od = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, settings.image_no,
                    pixels)
     err = od.run()
     if err:
