@@ -142,7 +142,7 @@ class App(object):
         if d['payment_hash'] in self.unpaid_htlcs.keys():
             self.finish_htlc(d['payment_hash'])
             return
-        if 'preimage' not in self.unpaid_htlcs.keys():
+        if 'preimage' not in d.keys():
             print("no preimage in settled invoice")
             return
 
