@@ -289,11 +289,15 @@ class OnionDraw(object):
                                       shared_secrets)
         print("send result: %s" % chill_yellow_str(str(send_result)))
 
-        if send_result['status'] != "pending":
+        if send_result['status'] not in {"pending", "complete"}:
             return {"status": "err",
                     "msg":    "payment status is not pending"}
 
-        # check to see if it succeeded
+        if send_result['status'] == "complete":
+            return {'status':       "success",
+                    "pixels_sent":  attempting_pixels}
+
+        # check to see if it will succeed.
         checks = 0
         while True:
             status = self.payment_status(payment_hash)
@@ -325,10 +329,10 @@ class OnionDraw(object):
                 hops = result['needed_hops']
                 pixel_underestimate = result['pixel_underestimate']
             elif result['status'] == 'err':
-                return None, result['msg']
+                return result['msg']
 
             if retry_count == 5:
-                return None, "too many retries, having trouble estimating..."
+                return "too many retries, having trouble estimating..."
             #print("remaining: %s" % pixels)
             if len(pixels) == 0:
                 return None
@@ -367,7 +371,7 @@ def manual_func(settings):
             sys.exit("bad pixel? %s" % pixel)
         pixels.append(p)
 
-    od = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, settings.image_no,
+    od = OnionDraw(settings.lightning_rpc, BANNANA_NODE, settings.image_no,
                    pixels)
     err = od.run()
     if err:
@@ -426,7 +430,7 @@ def png_func(settings):
     #print([str(p) for p in pixels])
 
     print("total pixels: %d" % len(pixels))
-    od = OnionDraw(settings.lightning_rpc, BANNERPUNK_NODE, settings.image_no,
+    od = OnionDraw(settings.lightning_rpc, BANNANA_NODE, settings.image_no,
                    pixels)
     err = od.run()
     if err:
