@@ -221,10 +221,12 @@ class OnionDraw(object):
             total += payload_len + hmac_len
         return total
 
-    def draw_attempt(self, myid, blockheight, invoice, hops, pixels,
+    def draw_attempt(self, myid, blockheight, hops, pixels,
                      pixel_underestimate):
         print("draw attempt")
         # get invoice that will be paid to self in circular route
+        invoice = self.create_invoice()
+
         payment_hash = invoice['payment_hash']
         bolt11 = invoice['bolt11']
         payment_secret = invoice['payment_secret']
@@ -313,14 +315,14 @@ class OnionDraw(object):
         return {'status':       "success",
                 "pixels_sent":  attempting_pixels}
 
-    def draw_loop(self, myid, blockheight, invoice):
+    def draw_loop(self, myid, blockheight):
         hops = 4
         pixels = self.pixel_draw_list
         pixel_underestimate = 0
         retry_count = 0
         while True:
-            result = self.draw_attempt(myid, blockheight, invoice, hops,
-                                       pixels, pixel_underestimate)
+            result = self.draw_attempt(myid, blockheight, hops, pixels,
+                                       pixel_underestimate)
             if result['status'] == "success":
                 pixels = pixels[result['pixels_sent']:]
                 pixel_underestimate = 0
@@ -342,11 +344,10 @@ class OnionDraw(object):
             myid, blockheight = self.get_myid_blockheight()
             print("myid: %s, blockheight %s" % (chill_yellow_str(myid),
                                                 chill_green_str(myid)))
-            invoice = self.create_invoice()
         except Exception as e:
             return "could not get basics from rpc: %s" % e
         try:
-            err = self.draw_loop(myid, blockheight, invoice)
+            err = self.draw_loop(myid, blockheight)
             if err:
                 return err
         except Exception as e:
