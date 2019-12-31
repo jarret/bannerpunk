@@ -3,7 +3,7 @@ import os
 import sys
 import argparse
 
-from bannerpunk.onion_draw import OnionDraw
+from bannerpunk.draw import Draw
 from bannerpunk.png import PngToPixels
 from bannerpunk.manual import ArgToPixels
 
@@ -20,7 +20,7 @@ def manual_func(s, rpc):
     pixels = list(ap.iter_pixels())
     if len([p for p in pixels if p != None]) != len(pixels):
         return "could not parse pixels"
-    od = OnionDraw(rpc, NODE, s.image_no, pixels)
+    od = Draw(rpc, NODE, s.image_no, pixels)
     return od.run()
 
 def png_func(s, rpc):
@@ -36,7 +36,7 @@ def png_func(s, rpc):
 
     pp = PngToPixels(s.image_no, s.png_file)
     pixels = list(pp.iter_at_offset(s.x_offset, s.y_offset))
-    od = OnionDraw(rpc, NODE, s.image_no, pixels)
+    od = Draw(rpc, NODE, s.image_no, pixels)
     return od.run()
 
 ###############################################################################

@@ -6,7 +6,7 @@ from bannerpunk.invoice import Invoice
 from bannerpunk.onion import Onion
 
 
-class OnionDraw:
+class Draw:
     def __init__(self, rpc, dst_node, art_no, pixels):
         self.rpc = rpc
         self.dst_node = dst_node
