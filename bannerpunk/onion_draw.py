@@ -3,30 +3,62 @@ import time
 import uuid
 import pprint
 
-from pyln.client import LightningRpc, Millisatoshi
+from pyln.client import Millisatoshi
 
 from bannerpunk.print import chill_blue_str, chill_green_str, chill_yellow_str
 from bannerpunk.print import chill_purple_str
 from bannerpunk.pixel import Pixel
-from bannerpunk.images import IMAGE_SIZES
 from bannerpunk.hop_payload import BannerPunkHopPayload
 
 from bolt.util import h2b
 from bolt.hop_payload import LegacyHopPayload, TlvHopPayload
 
-RISK_FACTOR = 10
+
+###############################################################################
+
+INVOICE_DESCRIPTION = ("circular payment invoice to deliver BannerPunk "
+                       "extension payload")
 SELF_PAYMENT = 1000 # in millisatoshis
+
+class Invoice:
+    def __init__(self, rpc):
+        self.rpc = rpc
+
+    def get_payment_secret(self, bolt11):
+        decoded = self.rpc.decodepay(bolt11)
+        return decoded['payment_secret']
+
+    def create_invoice(self):
+        msatoshi = SELF_PAYMENT
+        label = str(uuid.uuid4())
+        description = INVOICE_DESCRIPTION
+        invoice = self.rpc.invoice(msatoshi, label, description)
+        invoice['payment_secret'] = self.get_payment_secret(invoice['bolt11'])
+        return invoice
+
+
+###############################################################################
+
+RISK_FACTOR = 10
 CLTV_FINAL = 10
 PIXEL_BYTES = 5
 ONION_SIZE = 1300
+INITIAL_HOP_GUESS = 4
 
+FIT_ONION_TRIES = 5
 
-class OnionDraw(object):
-    def __init__(self, lightning_rpc, dst_node, art_no, pixels):
+class Onion:
+    def __init__(self, rpc, myid, dst_node, block_height, invoice, art_no,
+                 available_pixels):
+        self.rpc = rpc
+        self.myid = myid
         self.dst_node = dst_node
+        self.block_height = block_height
+        self.invoice = invoice
+        self.payment_secret = self.invoice['payment_secret']
+        self.payment_hash = self.invoice['payment_hash']
         self.art_no = art_no
-        self.pixels = pixels
-        self.rpc = LightningRpc(lightning_rpc)
+        self.available_pixels = available_pixels
 
     def estimate_routing_bytes(self, n_hops):
         # WARNING - this is a fudge, variable sizes can't easily be anticpated
@@ -53,25 +85,6 @@ class OnionDraw(object):
         approx_pixels = math.floor(approx_bytes / PIXEL_BYTES)
         return approx_pixels - 3 # underestimate a bit
 
-    def print_dict(self, info):
-        pprint.pprint(info)
-
-    def get_myid_blockheight(self):
-        info = self.rpc.getinfo()
-        return info['id'], info['blockheight']
-
-    def create_invoice(self):
-        msatoshi = SELF_PAYMENT
-        label = str(uuid.uuid4())
-        description = "circular onion payment for bannerpunk"
-        invoice = self.rpc.invoice(msatoshi, label, description)
-        invoice['payment_secret'] = self.get_payment_secret(invoice['bolt11'])
-        return invoice
-
-    def get_payment_secret(self, bolt11):
-        decoded = self.rpc.decodepay(bolt11)
-        return decoded['payment_secret']
-
     def get_outgoing_route(self, dst_payment):
         try:
             return self.rpc.getroute(self.dst_node, SELF_PAYMENT + dst_payment,
@@ -90,7 +103,7 @@ class OnionDraw(object):
             return None
 
     def rework_routing_fees(self, route, pay_dst, pay_msat):
-        # Thanks to sendinvoiceless.py plugin for this function!
+        # Thanks to sendinvoiceless.py plugin for this logic!
         delay = int(CLTV_FINAL)
         msatoshi = Millisatoshi(SELF_PAYMENT)
         for r in reversed(route):
@@ -174,29 +187,11 @@ class OnionDraw(object):
         dst = circular[-1]
         yield self.encode_final_payload(dst['style'], dst['id'], dst['channel'],
                                         dst['msatoshi'], blockheight,
-                                        dst['delay'], payment_secret,
-                                        pixels)
+                                        dst['delay'], payment_secret, pixels)
 
     def assemble_hops(self, circular, blockheight, payment_secret, pixels):
         return list(self.iter_hops(circular, blockheight, payment_secret,
                                    pixels))
-
-    def create_onion(self, hops, assocdata):
-        result = self.rpc.createonion(hops, assocdata)
-        return result['onion'], result['shared_secrets']
-
-    def send_onion(self, onion, circular, payment_hash, shared_secrets):
-        first_hop = circular[0]
-        label = str(uuid.uuid4())
-        print("send params: %s %s %s %s %s" % (onion, first_hop, payment_hash,
-                                               label, shared_secrets))
-        result = self.rpc.sendonion(onion, first_hop, payment_hash, label,
-                                    shared_secrets)
-        return result
-
-    def payment_status(self, payment_hash):
-        return self.rpc.listsendpays(None,
-                                     payment_hash)['payments'][0]['status']
 
     def calc_total_payload_size(self, hops):
         total = 0
@@ -206,26 +201,22 @@ class OnionDraw(object):
             total += payload_len + hmac_len
         return total
 
-    def draw_attempt(self, myid, blockheight, hops, pixels,
-                     pixel_underestimate):
-        print("draw attempt")
-        # get invoice that will be paid to self in circular route
-        invoice = self.create_invoice()
+    def create_onion(self, hops, assocdata):
+        result = self.rpc.createonion(hops, assocdata)
+        return result['onion'], result['shared_secrets']
 
-        payment_hash = invoice['payment_hash']
-        bolt11 = invoice['bolt11']
-        payment_secret = invoice['payment_secret']
-        print("bolt11: %s\npayment_secret: %s" % (
-            chill_green_str(bolt11), chill_blue_str(payment_secret)))
+    def print_dict(self, info):
+        pprint.pprint(info)
 
+    def try_fit(self, hop_count, pixel_underestimate):
         # estimate a route that will probably fit into an onion
-        hop_estimation = hops
-        will_fit = self.estimate_payload_pixels(hop_estimation)
+        will_fit = self.estimate_payload_pixels(hop_count)
         print("will_fit: %d" % will_fit)
-        attempting_pixels = min(will_fit, len(pixels)) - pixel_underestimate
+        attempting_pixels = (min(will_fit, len(self.available_pixels)) -
+                             pixel_underestimate)
         dst_payment = 1000 * attempting_pixels
         print("to draw: %d" % attempting_pixels)
-        attempting_pixel_list = pixels[:attempting_pixels]
+        attempting_pixel_list = self.available_pixels[:attempting_pixels]
 
         # try to make a route that fulfils the estimate
         outgoing = self.get_outgoing_route(dst_payment)
@@ -234,7 +225,7 @@ class OnionDraw(object):
                     'msg':    "could not get outgoing route"}
         print("outgoing:")
         self.print_dict(outgoing)
-        returning = self.get_returning_route(myid)
+        returning = self.get_returning_route(self.myid)
         if not returning:
             return {'status': "err",
                     'msg':    "could not get returning route"}
@@ -243,7 +234,7 @@ class OnionDraw(object):
 
         # check to see if the route compares to our estimate
         needed_hops = len(outgoing) + len(returning)
-        if needed_hops != hops:
+        if needed_hops != hop_count:
             print("different hop count than expected, need to recalculate...")
             return {'status':              "retry",
                     "needed_hops":         needed_hops,
@@ -253,8 +244,8 @@ class OnionDraw(object):
         circular = self.assemble_circular(outgoing, returning, dst_payment)
         print("assembled circular route:")
         self.print_dict(circular)
-        hops = self.assemble_hops(circular, blockheight, payment_secret,
-                                  attempting_pixel_list)
+        hops = self.assemble_hops(circular, self.block_height,
+                                  self.payment_secret, attempting_pixel_list)
         print("hops:")
         self.print_dict(hops)
 
@@ -267,61 +258,110 @@ class OnionDraw(object):
 
         # make the onion
         print("creating onion:")
-        onion, shared_secrets = self.create_onion(hops, payment_hash)
+        onion, shared_secrets = self.create_onion(hops, self.payment_hash)
         print("onion: %s" % chill_purple_str(onion))
         print("shared_secrets: %s" % chill_yellow_str(str(shared_secrets)))
+        return {'status':         "success",
+                'onion':          onion,
+                'first_hop':      circular[0],
+                'assoc_data':     self.invoice['payment_hash'],
+                'payment_hash':   self.invoice['payment_hash'],
+                'shared_secrets': shared_secrets,
+                'fitted_pixels':  attempting_pixels}
 
-        # send the onion
-        send_result = self.send_onion(onion, circular, payment_hash,
-                                      shared_secrets)
-        print("send result: %s" % chill_yellow_str(str(send_result)))
+    def fit_onion(self):
+        hop_count = INITIAL_HOP_GUESS
+        pixel_underestimate = 0
+        retry_count = 0
+        while retry_count < FIT_ONION_TRIES:
+            result = self.try_fit(hop_count, pixel_underestimate)
+            if result['status'] == "success":
+                return result
+            elif result['status'] == "retry":
+                retry_count += 1
+                hop_count = result['needed_hops']
+                pixel_underestimate = result['pixel_underestimate']
+            elif result['status'] == 'err':
+                return result
+        return {'status': "err",
+                'msg': "could not fit onion after %d tries" % FIT_ONION_TRIES}
 
-        if send_result['status'] not in {"pending", "complete"}:
-            return {"status": "err",
-                    "msg":    "payment status is not pending"}
 
-        if send_result['status'] == "complete":
-            return {'status':       "success",
-                    "pixels_sent":  attempting_pixels}
+###############################################################################
+
+
+class OnionDraw:
+    def __init__(self, rpc, dst_node, art_no, pixels):
+        self.rpc = rpc
+        self.dst_node = dst_node
+        self.art_no = art_no
+        self.pixels = pixels
+
+    def print_dict(self, info):
+        pprint.pprint(info)
+
+    def get_myid_blockheight(self):
+        info = self.rpc.getinfo()
+        return info['id'], info['blockheight']
+
+    def send_onion(self, onion, first_hop, assoc_data, shared_secrets):
+        label = str(uuid.uuid4())
+        print("send params: %s %s %s %s %s" % (onion, first_hop, assoc_data,
+                                               label, shared_secrets))
+        result = self.rpc.sendonion(onion, first_hop, assoc_data, label,
+                                    shared_secrets)
+        return result
+
+    def payment_status(self, payment_hash):
+        return self.rpc.listsendpays(None,
+                                     payment_hash)['payments'][0]['status']
+
+    def draw_pixel_set(self, myid, block_height, pixels):
+        invoice = Invoice(self.rpc).create_invoice()
+
+        onion_creator = Onion(self.rpc, myid, self.dst_node, block_height,
+                              invoice, self.art_no, self.pixels)
+
+        onion_result = onion_creator.fit_onion()
+        if onion_result['status'] != "success":
+            return None, onion_result['msg']
+
+        fitted_pixels = onion_result['fitted_pixels']
+
+        result = self.send_onion(onion_result['onion'],
+                                 onion_result['first_hop'],
+                                 onion_result['assoc_data'],
+                                 onion_result['shared_secrets'])
+
+        if result['status'] not in {"pending", "complete"}:
+            return None, "payment status not as expected after send"
+
+        if result['status'] == "complete":
+            return result['fitted_pixels'], None
 
         # check to see if it will succeed.
         checks = 0
         while True:
-            status = self.payment_status(payment_hash)
+            status = self.payment_status(onion_result['payment_hash'])
             if status == "complete":
                 break
             checks += 1
             if checks == 10:
-                return {"status": "err",
-                        "msg":    "payment didn't complete"}
+                return None, "payment didn't complete"
             print("sleeping waiting for payment to complete...")
-            time.sleep(1.0)
-
-        return {'status':       "success",
-                "pixels_sent":  attempting_pixels}
+            time.sleep(2.0)
+        return onion_result['fitted_pixels'], None
 
     def draw_loop(self, myid, blockheight):
-        hops = 4
         pixels = self.pixels
-        pixel_underestimate = 0
-        retry_count = 0
         while True:
-            result = self.draw_attempt(myid, blockheight, hops, pixels,
-                                       pixel_underestimate)
-            if result['status'] == "success":
-                pixels = pixels[result['pixels_sent']:]
-                pixel_underestimate = 0
-            elif result['status'] == "retry":
-                retry_count += 1
-                hops = result['needed_hops']
-                pixel_underestimate = result['pixel_underestimate']
-            elif result['status'] == 'err':
-                return result['msg']
-
-            if retry_count == 5:
-                return "too many retries, having trouble estimating..."
-            #print("remaining: %s" % pixels)
+            fitted_pixels, err = self.draw_pixel_set(myid, blockheight, pixels)
+            if err:
+                return err
+            if fitted_pixels:
+                pixels = pixels[fitted_pixels:]
             if len(pixels) == 0:
+                print("all pixels drawn")
                 return None
 
     def run(self):
@@ -336,5 +376,7 @@ class OnionDraw(object):
             if err:
                 return err
         except Exception as e:
+            import traceback
+            print(traceback.format_exc())
             return None, "error while buying pixels: %s" % e
         return None
