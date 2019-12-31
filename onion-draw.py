@@ -11,6 +11,7 @@ from pyln.client import LightningRpc
 
 
 NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"
+#NODE = "035c77dc0a10fe60e1304ae5b57d8fef87751add5d016b896d854fb706be6fc96c"
 
 ###############################################################################
 
