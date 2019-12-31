@@ -27,12 +27,16 @@ class Invoice:
         return decoded['payment_secret']
 
     def create_invoice(self):
-        msatoshi = SELF_PAYMENT
-        label = str(uuid.uuid4())
-        description = INVOICE_DESCRIPTION
-        invoice = self.rpc.invoice(msatoshi, label, description)
-        invoice['payment_secret'] = self.get_payment_secret(invoice['bolt11'])
-        return invoice
+        try:
+            msatoshi = SELF_PAYMENT
+            label = str(uuid.uuid4())
+            description = INVOICE_DESCRIPTION
+            invoice = self.rpc.invoice(msatoshi, label, description)
+            invoice['payment_secret'] = self.get_payment_secret(
+                invoice['bolt11'])
+            return invoice, None
+        except:
+            return None, "could not create invoice"
 
 
 ###############################################################################
@@ -77,7 +81,6 @@ class Onion:
         # legacy payloads == 33 bytes + 32 byte hmac
         # tlv mid payloads ~= 18 bytes + 32 byte hmac
         # tlv final payloads ~= 46 bytes + 32 byte hmac
-
         if n_hops == 1:
             # destination is only hop
             return 46 + 32
@@ -332,52 +335,56 @@ class OnionDraw:
         self.art_no = art_no
         self.pixels = pixels
 
-    def print_dict(self, info):
-        pprint.pprint(info)
+    def _get_myid_blockheight(self):
+        try:
+            info = self.rpc.getinfo()
+            return info['id'], info['blockheight'], None
+        except:
+            return None, None, "could not get id, block_height"
 
-    def get_myid_blockheight(self):
-        info = self.rpc.getinfo()
-        return info['id'], info['blockheight']
-
-    def send_onion(self, onion, first_hop, assoc_data, shared_secrets):
+    def _send_onion(self, onion, first_hop, assoc_data, shared_secrets):
         label = str(uuid.uuid4())
         #print("send params: %s %s %s %s %s" % (onion, first_hop, assoc_data,
         #                                       label, shared_secrets))
-        result = self.rpc.sendonion(onion, first_hop, assoc_data, label,
-                                    shared_secrets)
-        return result
+        try:
+            result = self.rpc.sendonion(onion, first_hop, assoc_data, label,
+                                        shared_secrets)
+            return result, None
+        except:
+            return None, "could not send onion"
 
-    def payment_status(self, payment_hash):
-        return self.rpc.listsendpays(None,
-                                     payment_hash)['payments'][0]['status']
+    def _payment_status(self, payment_hash):
+        try:
+            l = self.rpc.listsendpays(None, payment_hash)
+            status = l['payments'][0]['status']
+            return status
+        except:
+            return "error"
 
-    def draw_pixel_set(self, myid, block_height, pixels):
-        invoice = Invoice(self.rpc).create_invoice()
-
+    def _draw_pixels(self, myid, block_height, pixels):
+        invoice, err = Invoice(self.rpc).create_invoice()
+        if err:
+            return None, err
         onion_creator = Onion(self.rpc, myid, self.dst_node, block_height,
                               invoice, self.art_no, self.pixels)
-
         onion_result = onion_creator.fit_onion()
         if onion_result['status'] != "success":
             return None, onion_result['msg']
-
         fitted_pixels = onion_result['fitted_pixels']
-
-        result = self.send_onion(onion_result['onion'],
-                                 onion_result['first_hop'],
-                                 onion_result['assoc_data'],
-                                 onion_result['shared_secrets'])
-
+        result, err = self._send_onion(onion_result['onion'],
+                                       onion_result['first_hop'],
+                                       onion_result['assoc_data'],
+                                       onion_result['shared_secrets'])
+        if err:
+            return None, err
         if result['status'] not in {"pending", "complete"}:
             return None, "payment status not as expected after send"
-
         if result['status'] == "complete":
             return result['fitted_pixels'], None
-
-        # check to see if it will succeed.
+        print("waiting for payment completion")
         checks = 0
         while True:
-            status = self.payment_status(onion_result['payment_hash'])
+            status = self._payment_status(onion_result['payment_hash'])
             if status == "complete":
                 break
             checks += 1
@@ -387,26 +394,25 @@ class OnionDraw:
             time.sleep(2.0)
         return onion_result['fitted_pixels'], None
 
-    def draw_loop(self, myid, block_height):
+    def _draw_loop(self, myid, block_height):
         pixels = self.pixels
         while True:
-            fitted_pixels, err = self.draw_pixel_set(myid, block_height, pixels)
+            pixels_drawn, err = self._draw_pixels(myid, block_height, pixels)
             if err:
                 return err
-            if fitted_pixels:
-                pixels = pixels[fitted_pixels:]
+            if pixels_drawn:
+                pixels = pixels[pixels_drawn:]
             if len(pixels) == 0:
                 print("all pixels drawn")
                 return None
 
     def run(self):
+        myid, block_height, err = self._get_myid_blockheight()
+        if err:
+            return err
+        print("myid: %s, block_height %s" % (myid, block_height))
         try:
-            myid, block_height = self.get_myid_blockheight()
-            print("myid: %s, block_height %s" % (myid, block_height))
-        except Exception as e:
-            return "could not get basics from rpc: %s" % e
-        try:
-            err = self.draw_loop(myid, block_height)
+            err = self._draw_loop(myid, block_height)
             if err:
                 return err
         except Exception as e:
