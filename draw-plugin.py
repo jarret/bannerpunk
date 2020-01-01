@@ -3,6 +3,7 @@ import os
 from pyln.client import Plugin
 
 from bannerpunk.pixel import Pixel
+from bannerpunk.manual import ManualToPixels
 from bannerpunk.png import PngToPixels
 from bannerpunk.draw import Draw
 
@@ -22,23 +23,9 @@ def parse_pixel_args(image_no_string, pixels_string):
         image_no = int(image_no_string)
     except:
         return None, None, "could not parse %s" % image_no_string
-
-    string_tokens = pixels_string.split("_")
-    if len(string_tokens) == 0:
-        return None, None, "no pixels given"
-    if len(string_tokens) % 3 != 0:
-        return None, None, "could not parse %s as pixels" % pixels
-    pixels = []
-    for i in range(0, len(string_tokens), 3):
-        pixel_tokens = string_tokens[i:i+3]
-        try:
-            x = int(pixel_tokens[0])
-            y = int(pixel_tokens[1])
-            rgb = pixel_tokens[2]
-            pixel = Pixel(x, y, rgb)
-        except:
-            return None, None, "could not interpret %s as pixel" % pixel_tokens
-        pixels.append(pixel)
+    pixels, err = ManualToPixels(pixels_string)
+    if err:
+        return None, None, err
     return image_no, pixels, None
 
 @plugin.method("draw_pixels")

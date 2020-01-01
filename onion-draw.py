@@ -5,7 +5,7 @@ import argparse
 
 from bannerpunk.draw import Draw
 from bannerpunk.png import PngToPixels
-from bannerpunk.manual import ArgToPixels
+from bannerpunk.manual import ManualToPixels
 
 from pyln.client import LightningRpc
 
@@ -16,10 +16,10 @@ NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"
 ###############################################################################
 
 def manual_func(s, rpc):
-    ap = ArgToPixels(s.pixel)
-    pixels = list(ap.iter_pixels())
-    if len([p for p in pixels if p != None]) != len(pixels):
-        return "could not parse pixels"
+    ap = ManualToPixels(s.pixels)
+    pixels, err = ap.parse_pixels()
+    if err:
+        return err
     d = Draw(rpc, NODE, s.image_no, pixels)
     return d.run()
 
@@ -60,9 +60,11 @@ png = subparsers.add_parser('png',
                                  "(requires that you install pillow "
                                  "and dependencies)")
 
-manual.add_argument('pixel', nargs='+',
-                    help="a list of one, two, three or four pixels to draw "
-                         "in the format x,y,rgb, eg. 10,20,44ffee")
+manual.add_argument('pixels', type=str,
+                    help="a string specifying coordinates and colors of "
+                         "pixels to draw separated by underscores. "
+                         "Eg. 1_1_ffffff_2_2_00ff00 will set pixel "
+                         "(1,1) white (#ffffff) and (2,2) green (#00ff00)")
 manual.set_defaults(func=manual_func)
 
 png.add_argument("x_offset", type=int,
