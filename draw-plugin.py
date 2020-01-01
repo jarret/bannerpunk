@@ -86,6 +86,7 @@ def draw_png(plugin, image_no, x_offset, y_offset, png_filename):
 
 ###############################################################################
 
+# the "offical" bannerpunk node
 NODE = "02e389d861acd9d6f5700c99c6c33dd4460d6f1e2f6ba89d1f4f36be85fc60f8d7"
 
 plugin.add_option("bannerpunk_node", NODE, "the node we are paying to draw to")

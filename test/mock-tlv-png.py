@@ -19,7 +19,8 @@ from txzmq import ZmqSubConnection, ZmqPubConnection
 sys.path.insert(1, os.path.realpath(os.path.pardir))
 
 from bannerpunk.pixel import Pixel
-from bannerpunk.hop_payload import BannerPunkHopPayload
+from bannerpunk.png import PngToPixels
+from bannerpunk.extension import Extension
 
 
 # This module publishes a script of messages to a ZMQ endpoint
@@ -44,50 +45,23 @@ parser.add_argument("y_offset", type=int)
 parser.add_argument("png_file", type=str)
 s = parser.parse_args()
 
-img = Image.open(s.png_file)
-width, height = img.size
-rgb_raw = img.convert("RGBA")
+pp = PngToPixels(s.image_no, s.png_file)
 
-px_data = list(rgb_raw.getdata())
-
-pixels = []
-for h in range(height):
-    for w in range(width):
-        x = w + s.x_offset
-        if x > MAX_X:
-            continue
-        y = h + s.y_offset
-        if y > MAX_Y:
-            continue
-        y = h + s.y_offset
-        idx = (h * width) + w
-        r = px_data[idx][0]
-        g = px_data[idx][1]
-        b = px_data[idx][2]
-        a = px_data[idx][3]
-        if (a < 200):
-            continue
-        #print("r g b a: %d %d %d %d" % (r,g,b,a))
-        rgb = "%02x%02x%02x" % (r, g, b)
-        pixels.append(Pixel(x, y, rgb))
-
-#print([str(p) for p in pixels])
-
+pixels = list(pp.iter_at_offset(s.x_offset, s.y_offset))
 
 def divide_chunks(l, n):
     # looping till length l
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
-
 TEST_PAYLOADS = []
-for chunk in divide_chunks(pixels, 4):
+for chunk in divide_chunks(pixels, 100):
     print("chunk: %s" % [str(p) for p in chunk])
     amount = (len(chunk) * 1000) + 1000
     forward_amount = 1000
-    payload = BannerPunkHopPayload.encode_non_final(forward_amount, 100,
-                                                    "123x45x67", s.image_no,
-                                                    chunk)
+    payload = Extension.encode_non_final(forward_amount, 100,
+                                         "123x45x67", s.image_no,
+                                         chunk)
     p = {'amount':         amount,
          'forward_amount': forward_amount,
          'payload':        payload.hex()}

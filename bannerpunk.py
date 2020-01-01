@@ -21,8 +21,8 @@ from bannerpunk.preimage import Preimage
 from bannerpunk.art_db import ArtDb
 from bannerpunk.compressor import compressor
 from bannerpunk.images import IMAGE_SIZES
-from bannerpunk.hop_payload import BannerPunkHopPayload
-from bannerpunk.hop_payload import PIXEL_TLV_TYPE, ART_TLV_TYPE
+from bannerpunk.extension import Extension
+from bannerpunk.extension import PIXEL_TLV_TYPE, ART_TLV_TYPE
 
 
 UNPAID_PRUNE_CHECK = 60
@@ -175,7 +175,7 @@ class App(object):
         payload_hex = d['onion']['payload']
         payload = h2b(payload_hex)
         paid = amount - forward_amount
-        parsed_payload, err = BannerPunkHopPayload.parse(payload)
+        parsed_payload, err = Extension.parse(payload)
         if err:
             print("could not parse payload: %s" % err)
             return
@@ -192,7 +192,7 @@ class App(object):
     def finish_htlc(self, payment_hash):
         payload_hex = self.unpaid_htlcs.pop(payment_hash)['payload_hex']
         payload = h2b(payload_hex)
-        parsed_payload, err = BannerPunkHopPayload.parse(payload)
+        parsed_payload, err = Extension.parse(payload)
         assert err is None, "could not parse the second time?"
         image_no = parsed_payload['tlvs'][ART_TLV_TYPE]['art_no']
         pixels = parsed_payload['tlvs'][PIXEL_TLV_TYPE]['pixels']
