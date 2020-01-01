@@ -48,7 +48,7 @@ class Draw:
         if err:
             return None, err
         onion_creator = Onion(self.rpc, myid, self.dst_node, block_height,
-                              invoice, self.art_no, self.pixels)
+                              invoice, self.art_no, pixels)
         onion_result = onion_creator.fit_onion()
         if onion_result['status'] != "success":
             return None, onion_result['msg']
