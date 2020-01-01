@@ -3,7 +3,7 @@ import pprint
 
 from pyln.client import Millisatoshi
 
-from bannerpunk.hop_payload import BannerPunkHopPayload
+from bannerpunk.extension import Extension
 from bannerpunk.invoice import SELF_PAYMENT
 
 from bolt.util import h2b
@@ -143,10 +143,8 @@ class Onion:
     def _encode_non_final(self, pubkey, channel, msatoshi, block_height,
                           delay, pixels):
         if pubkey == self.dst_node:
-            p = BannerPunkHopPayload.encode_non_final(msatoshi,
-                                                      block_height + delay,
-                                                      channel, self.art_no,
-                                                      pixels)
+            p = Extension.encode_non_final(msatoshi, block_height + delay,
+                                           channel, self.art_no, pixels)
         else:
             p = TlvHopPayload.encode_non_final(msatoshi, block_height + delay,
                                                channel)
@@ -157,11 +155,9 @@ class Onion:
     def _encode_final(self, pubkey, channel, msatoshi, block_height, delay,
                       payment_secret, pixels):
         if pubkey == self.dst_node:
-            p = BannerPunkHopPayload.encode_final(msatoshi,
-                                                  block_height + delay,
-                                                  channel, payment_secret,
-                                                  msatoshi, self.art_no,
-                                                  pixels)
+            p = Extension.encode_final(msatoshi, block_height + delay, channel,
+                                       payment_secret, msatoshi, self.art_no,
+                                       pixels)
         else:
             p = TlvHopPayload.encode_final(msatoshi, block_height + delay,
                                            payment_secret=payment_secret,
