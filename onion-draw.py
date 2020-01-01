@@ -20,8 +20,8 @@ def manual_func(s, rpc):
     pixels = list(ap.iter_pixels())
     if len([p for p in pixels if p != None]) != len(pixels):
         return "could not parse pixels"
-    od = Draw(rpc, NODE, s.image_no, pixels)
-    return od.run()
+    d = Draw(rpc, NODE, s.image_no, pixels)
+    return d.run()
 
 def png_func(s, rpc):
     try:
@@ -36,8 +36,8 @@ def png_func(s, rpc):
 
     pp = PngToPixels(s.image_no, s.png_file)
     pixels = list(pp.iter_at_offset(s.x_offset, s.y_offset))
-    od = Draw(rpc, NODE, s.image_no, pixels)
-    return od.run()
+    d = Draw(rpc, NODE, s.image_no, pixels)
+    return d.run()
 
 ###############################################################################
 
