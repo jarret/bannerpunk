@@ -80,8 +80,8 @@ def publish():
         print("publishing: %s" % msg)
         pub_connection.publish(msg, tag=HTLC_ACCEPTED_TAG)
         time.sleep(0.01)
-        if (random.random() < 0.5):
-            continue
+        #if (random.random() < 0.5):
+        #    continue
         m = {'forward_event': {'payment_hash': payment_hash,
                                'status':       "settled",
                                'fee':        p['amount'] - p['forward_amount']}}
